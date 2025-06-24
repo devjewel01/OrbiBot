@@ -1,3 +1,24 @@
+# ROS2
+.vscode/
+*.pyc
+*.iml
+*.swp
+.project
+.pydevproject
+.DS_Store
+.idea
+
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# colcon/CMake output
+build/
+devel/
+install/
+log/
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
