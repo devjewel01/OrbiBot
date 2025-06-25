@@ -1,22 +1,44 @@
-# ROS2
-.vscode/
-*.pyc
-*.iml
-*.swp
-.project
-.pydevproject
-.DS_Store
-.idea
-
-.vscode/*
-!.vscode/extensions.json
-!.vscode/settings.json
-
-# colcon/CMake output
+# ROS 2 Workspace
 build/
-devel/
 install/
 log/
+devel/
+
+# ROS 2 specific files
+*.bag
+*.db3
+*.mcap
+.colcon_install_layout
+.colcon_build_layout
+
+# CMake
+CMakeLists.txt.user
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# IDE and editor files
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.iml
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
 
 # Byte-compiled / optimized / DLL files
@@ -211,5 +233,5 @@ cython_debug/
 #  Cursor is an AI-powered code editor. `.cursorignore` specifies files/directories to
 #  exclude from AI features like autocomplete and code analysis. Recommended for sensitive data
 #  refer to https://docs.cursor.com/context/ignore-files
-.cursorignore
+# .cursorignore
 .cursorindexingignore
