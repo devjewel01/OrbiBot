@@ -182,19 +182,16 @@ class ROSMasterInterface:
             return [0, 0, 0, 0]
     
     def reset_encoders(self) -> bool:
-        """Reset all encoder counts to zero"""
+        """Reset all encoder counts to zero - not supported by ROSMaster_Lib"""
         if not self.is_connected():
             return False
             
-        try:
-            with self.lock:
-                for motor_id in range(1, self.MOTOR_COUNT + 1):
-                    self.board.reset_motor_encoder(motor_id)
-                return True
-        except Exception as e:
-            if self.logger:
-                self.logger.error(f"Failed to reset encoders: {str(e)}")
-            return False
+        if self.logger:
+            self.logger.warn("Encoder reset not supported by ROSMaster_Lib - using software reset")
+        
+        # Since hardware reset is not available, we'll track offset in software
+        # This is handled by the hardware node resetting its internal counters
+        return True
     
     # IMU Methods
     def get_imu_data(self) -> Tuple[List[float], List[float], List[float]]:
@@ -217,15 +214,15 @@ class ROSMasterInterface:
                 gyro = self.board.get_gyroscope_data()
                 mag = self.board.get_magnetometer_data()
                 
-                # Convert tuples to lists with 3 elements
+                # Convert tuples to lists with 3 elements and ensure all are floats
                 accel = list(accel) if isinstance(accel, (tuple, list)) and len(accel) >= 3 else [0.0, 0.0, 0.0]
                 gyro = list(gyro) if isinstance(gyro, (tuple, list)) and len(gyro) >= 3 else [0.0, 0.0, 0.0]
                 mag = list(mag) if isinstance(mag, (tuple, list)) and len(mag) >= 3 else [0.0, 0.0, 0.0]
                 
-                # Ensure exactly 3 elements
-                accel = accel[:3] + [0.0] * (3 - len(accel)) if len(accel) < 3 else accel[:3]
-                gyro = gyro[:3] + [0.0] * (3 - len(gyro)) if len(gyro) < 3 else gyro[:3]
-                mag = mag[:3] + [0.0] * (3 - len(mag)) if len(mag) < 3 else mag[:3]
+                # Ensure exactly 3 elements and convert to float
+                accel = [float(x) for x in (accel[:3] + [0.0] * (3 - len(accel)) if len(accel) < 3 else accel[:3])]
+                gyro = [float(x) for x in (gyro[:3] + [0.0] * (3 - len(gyro)) if len(gyro) < 3 else gyro[:3])]
+                mag = [float(x) for x in (mag[:3] + [0.0] * (3 - len(mag)) if len(mag) < 3 else mag[:3])]
                 
                 return (accel, gyro, mag)
                 

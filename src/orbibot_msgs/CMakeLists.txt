@@ -17,7 +17,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/SystemStatus.msg"
   "msg/SafetyStatus.msg"
   "srv/SetMotorEnable.srv"
-  "srv/CalibrateIMY.srv"
+  "srv/CalibrateIMU.srv"
   "srv/ResetOdometry.srv"
   DEPENDENCIES std_msgs geometry_msgs
 )

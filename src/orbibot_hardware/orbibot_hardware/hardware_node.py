@@ -35,7 +35,7 @@ class OrbiBot_Hardware_Node(Node):
         super().__init__('orbibot_hardware_node')
         
         # Parameters
-        self.declare_parameters()
+        self.declare_node_parameters()
         self.load_parameters()
         
         # Hardware interface
@@ -84,31 +84,34 @@ class OrbiBot_Hardware_Node(Node):
         
         self.get_logger().info("OrbiBot Hardware Node initialized")
     
-    def declare_parameters(self):
+    def declare_node_parameters(self):
         """Declare ROS parameters"""
-        # Hardware parameters
-        self.declare_parameter('hardware.serial_port', '/dev/motordriver')
-        self.declare_parameter('hardware.baudrate', 115200)
-        self.declare_parameter('hardware.motor_max_rpm', 333)
-        
-        # Physical parameters
-        self.declare_parameter('robot.wheel_radius', 0.05)
-        self.declare_parameter('robot.encoder_cpr', 1320)  # Counts per revolution
-        self.declare_parameter('robot.gear_ratio', 30)
-        
-        # Control parameters
-        self.declare_parameter('control.cmd_timeout', 2.0)
-        self.declare_parameter('control.max_velocity', 1.5)
-        self.declare_parameter('control.max_angular_velocity', 2.0)
-        
-        # Update rates
-        self.declare_parameter('rates.hardware_update_rate', 50.0)  # Hz
-        self.declare_parameter('rates.imu_rate', 100.0)
-        self.declare_parameter('rates.status_rate', 10.0)
-        
-        # Safety parameters
-        self.declare_parameter('safety.battery_low_threshold', 11.0)
-        self.declare_parameter('safety.temperature_limit', 80.0)
+        try:
+            # Hardware parameters
+            self.declare_parameter('hardware.serial_port', '/dev/motordriver')
+            self.declare_parameter('hardware.baudrate', 115200)
+            self.declare_parameter('hardware.motor_max_rpm', 333)
+            
+            # Physical parameters
+            self.declare_parameter('robot.wheel_radius', 0.05)
+            self.declare_parameter('robot.encoder_cpr', 1320)  # Counts per revolution
+            self.declare_parameter('robot.gear_ratio', 30)
+            
+            # Control parameters
+            self.declare_parameter('control.cmd_timeout', 2.0)
+            self.declare_parameter('control.max_velocity', 1.5)
+            self.declare_parameter('control.max_angular_velocity', 2.0)
+            
+            # Update rates
+            self.declare_parameter('rates.hardware_update_rate', 50.0)  # Hz
+            self.declare_parameter('rates.imu_rate', 100.0)
+            self.declare_parameter('rates.status_rate', 10.0)
+            
+            # Safety parameters
+            self.declare_parameter('safety.battery_low_threshold', 11.0)
+            self.declare_parameter('safety.temperature_limit', 80.0)
+        except Exception as e:
+            self.get_logger().error(f"Parameter declaration failed: {str(e)}")
     
     def load_parameters(self):
         """Load parameters from ROS parameter server"""

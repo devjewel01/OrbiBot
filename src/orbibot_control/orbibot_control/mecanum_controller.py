@@ -26,7 +26,7 @@ class MecanumController(Node):
         super().__init__('mecanum_controller')
         
         # Control parameters
-        self.declare_parameters()
+        self.declare_control_parameters()
         self.load_parameters()
         
         # Initialize components
@@ -55,7 +55,6 @@ class MecanumController(Node):
         # QoS profiles
         cmd_qos = QoSProfile(
             reliability=ReliabilityPolicy.RELIABLE,
-            durability=DurabilityPolicy.TRANSIENT_LOCAL,
             depth=10
         )
         
@@ -94,7 +93,7 @@ class MecanumController(Node):
         self.get_logger().info(f"Max linear velocity: {self.max_linear_vel:.2f} m/s")
         self.get_logger().info(f"Max angular velocity: {self.max_angular_vel:.2f} rad/s")
     
-    def declare_parameters(self):
+    def declare_control_parameters(self):
         """Declare ROS parameters"""
         self.declare_parameter('max_linear_velocity', 1.5)
         self.declare_parameter('max_angular_velocity', 2.0)

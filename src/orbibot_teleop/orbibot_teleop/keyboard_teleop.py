@@ -41,7 +41,7 @@ class KeyboardTeleop(Node):
         self.motor_enable_client = self.create_client(SetMotorEnable, '/orbibot/set_motor_enable')
         
         # Control parameters
-        self.declare_parameters()
+        self.declare_teleop_parameters()
         self.load_parameters()
         
         # State variables
@@ -86,7 +86,7 @@ class KeyboardTeleop(Node):
         self.get_logger().info("Waiting for motor enable service...")
         self.motor_enable_client.wait_for_service(timeout_sec=5.0)
     
-    def declare_parameters(self):
+    def declare_teleop_parameters(self):
         """Declare ROS parameters"""
         self.declare_parameter('max_linear_speed', 1.0)
         self.declare_parameter('max_angular_speed', 1.5)
