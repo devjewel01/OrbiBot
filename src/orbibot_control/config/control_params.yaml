@@ -1,0 +1,25 @@
+mecanum_controller:
+  ros__parameters:
+    # Velocity limits
+    max_linear_velocity: 1.5      # m/s
+    max_angular_velocity: 2.0     # rad/s
+    cmd_timeout: 2.0              # seconds
+    
+    # Control settings
+    use_pid_control: true
+    control_frequency: 50.0       # Hz
+    
+    # Physical parameters
+    wheel_radius: 0.05            # m (50mm)
+    wheel_separation_x: 0.18      # m (180mm front-back)
+    wheel_separation_y: 0.30      # m (300mm left-right)
+    
+    # PID parameters
+    pid_kp: 1.0
+    pid_ki: 0.1
+    pid_kd: 0.05
+    
+    # Safety parameters
+    max_acceleration: 2.0         # m/s²
+    max_angular_acceleration: 3.0 # rad/s²
+    emergency_deceleration: 5.0   # m/s²

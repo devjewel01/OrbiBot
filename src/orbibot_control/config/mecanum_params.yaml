@@ -1,0 +1,22 @@
+# Mecanum wheel specific parameters
+mecanum_kinematics:
+  ros__parameters:
+    # Wheel configuration (A-B-B-A pattern)
+    wheel_type_front_left: "A"
+    wheel_type_front_right: "B"
+    wheel_type_rear_left: "B"
+    wheel_type_rear_right: "A"
+    
+    # Kinematic constraints
+    min_turning_radius: 0.0       # Can turn in place
+    max_velocity_x: 1.5           # m/s
+    max_velocity_y: 1.5           # m/s
+    max_velocity_theta: 2.0       # rad/s
+    
+    # Motion characteristics
+    velocity_rolling_window_size: 10
+    
+    # Odometry settings
+    publish_odom_tf: true
+    odom_frame_id: "odom"
+    base_frame_id: "base_link"
