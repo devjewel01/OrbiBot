@@ -59,8 +59,8 @@ class OrbiBot_Hardware_Node(Node):
         self.emergency_stop = False
         self.safety_fault = False
         
-        # IMU state (for firmware v3.5 compatibility)
-        self.use_attitude_only = True  # v3.5 doesn't provide raw IMU data
+        # IMU state (ROSMaster library only provides attitude data)
+        self.use_attitude_only = True  # ROSMaster library only provides attitude, not raw IMU
         self.last_attitude = [0.0, 0.0, 0.0]  # roll, pitch, yaw
         
         # Publishers
@@ -99,7 +99,7 @@ class OrbiBot_Hardware_Node(Node):
         
         # Update rates
         self.declare_parameter('rates.hardware_update_rate', 50.0)
-        self.declare_parameter('rates.imu_rate', 50.0)  # Reduced for v3.5
+        self.declare_parameter('rates.imu_rate', 50.0)  # Attitude data only
         self.declare_parameter('rates.status_rate', 10.0)
         
         # Safety parameters
@@ -211,12 +211,7 @@ class OrbiBot_Hardware_Node(Node):
             try:
                 version = self.bot.get_version()
                 self.get_logger().info(f"ROSMaster firmware version: {version}")
-                
-                # Check if we have v3.5 limitations
-                if version >= 3.5:
-                    self.use_attitude_only = True
-                    self.get_logger().warn(
-                        "Firmware v3.5 detected - using attitude data only (no raw IMU)")
+                self.get_logger().info("ROSMaster library provides attitude data only (no raw IMU)")
             except:
                 self.get_logger().warn("Could not get firmware version")
             
@@ -378,61 +373,44 @@ class OrbiBot_Hardware_Node(Node):
             msg.header.stamp = self.get_clock().now().to_msg()
             msg.header.frame_id = 'imu_link'
             
-            if self.use_attitude_only:
-                # Firmware v3.5 - use attitude data only
-                roll, pitch, yaw = self.bot.get_imu_attitude_data(ToAngle=False)
-                
-                # Convert Euler angles to quaternion
-                cy = np.cos(yaw * 0.5)
-                sy = np.sin(yaw * 0.5)
-                cp = np.cos(pitch * 0.5)
-                sp = np.sin(pitch * 0.5)
-                cr = np.cos(roll * 0.5)
-                sr = np.sin(roll * 0.5)
-                
-                msg.orientation.w = cr * cp * cy + sr * sp * sy
-                msg.orientation.x = sr * cp * cy - cr * sp * sy
-                msg.orientation.y = cr * sp * cy + sr * cp * sy
-                msg.orientation.z = cr * cp * sy - sr * sp * cy
-                
-                # Set orientation covariance (estimated)
-                msg.orientation_covariance = [
-                    0.01, 0, 0,
-                    0, 0.01, 0,
-                    0, 0, 0.01
-                ]
-                
-                # Estimate angular velocity from attitude change
-                if hasattr(self, 'last_attitude_time'):
-                    dt = time.time() - self.last_attitude_time
-                    if dt > 0:
-                        msg.angular_velocity.x = (roll - self.last_attitude[0]) / dt
-                        msg.angular_velocity.y = (pitch - self.last_attitude[1]) / dt
-                        msg.angular_velocity.z = (yaw - self.last_attitude[2]) / dt
-                
-                self.last_attitude = [roll, pitch, yaw]
-                self.last_attitude_time = time.time()
-                
-                # No raw accelerometer data in v3.5
-                msg.linear_acceleration.z = 9.81  # Assume gravity
-                msg.linear_acceleration_covariance = [-1] * 9  # Unknown
-                msg.angular_velocity_covariance = [0.1] * 9
-                
-            else:
-                # Older firmware - use raw IMU data
-                ax, ay, az = self.bot.get_accelerometer_data()
-                gx, gy, gz = self.bot.get_gyroscope_data()
-                
-                msg.linear_acceleration.x = ax
-                msg.linear_acceleration.y = ay
-                msg.linear_acceleration.z = az if az != 0 else 9.81
-                
-                msg.angular_velocity.x = gx
-                msg.angular_velocity.y = gy
-                msg.angular_velocity.z = gz
-                
-                # Orientation not computed from raw data
-                msg.orientation_covariance = [-1] * 9
+            # ROSMaster library provides attitude data only
+            roll, pitch, yaw = self.bot.get_imu_attitude_data(ToAngle=False)
+            
+            # Convert Euler angles to quaternion
+            cy = np.cos(yaw * 0.5)
+            sy = np.sin(yaw * 0.5)
+            cp = np.cos(pitch * 0.5)
+            sp = np.sin(pitch * 0.5)
+            cr = np.cos(roll * 0.5)
+            sr = np.sin(roll * 0.5)
+            
+            msg.orientation.w = cr * cp * cy + sr * sp * sy
+            msg.orientation.x = sr * cp * cy - cr * sp * sy
+            msg.orientation.y = cr * sp * cy + sr * cp * sy
+            msg.orientation.z = cr * cp * sy - sr * sp * cy
+            
+            # Set orientation covariance (estimated)
+            msg.orientation_covariance = [
+                0.01, 0, 0,
+                0, 0.01, 0,
+                0, 0, 0.01
+            ]
+            
+            # Estimate angular velocity from attitude change
+            if hasattr(self, 'last_attitude_time'):
+                dt = time.time() - self.last_attitude_time
+                if dt > 0:
+                    msg.angular_velocity.x = (roll - self.last_attitude[0]) / dt
+                    msg.angular_velocity.y = (pitch - self.last_attitude[1]) / dt
+                    msg.angular_velocity.z = (yaw - self.last_attitude[2]) / dt
+            
+            self.last_attitude = [roll, pitch, yaw]
+            self.last_attitude_time = time.time()
+            
+            # No raw accelerometer data available
+            msg.linear_acceleration.z = 9.81  # Assume gravity
+            msg.linear_acceleration_covariance = [-1] * 9  # Unknown
+            msg.angular_velocity_covariance = [0.1] * 9
                 
             self.imu_pub.publish(msg)
             
@@ -582,11 +560,11 @@ class OrbiBot_Hardware_Node(Node):
     
     def calibrate_imu_callback(self, request, response):
         """Handle IMU calibration service"""
-        # For v3.5 firmware, we can't calibrate raw IMU
+        # ROSMaster library only provides attitude data, no raw IMU calibration
         response.success = True
-        response.message = "IMU calibration not available in firmware v3.5"
+        response.message = "IMU calibration not available - ROSMaster provides attitude data only"
         response.bias_values = [0.0, 0.0, 0.0]
-        self.get_logger().info("IMU calibration requested (not available in v3.5)")
+        self.get_logger().info("IMU calibration requested (not available - attitude data only)")
         return response
     
     def reset_odometry_callback(self, request, response):

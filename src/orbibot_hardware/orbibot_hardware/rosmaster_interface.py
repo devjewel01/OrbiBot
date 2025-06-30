@@ -41,10 +41,13 @@ class ROSMasterInterface:
         self.MAX_RPM = 333  # Maximum motor RPM
         
         # Motor mapping (board motor ID to robot wheel)
+        # According to Yahboom ROS expansion board documentation:
+        # Motor1 -> UpperLeft (front_left), Motor2 -> BottomLeft (back_left)
+        # Motor3 -> UpperRight (front_right), Motor4 -> BottomRight (back_right)
         self.MOTOR_MAPPING = {
             'front_left': 1,
-            'front_right': 2, 
-            'back_left': 3,
+            'front_right': 3, 
+            'back_left': 2,
             'back_right': 4
         }
         
@@ -219,31 +222,24 @@ class ROSMasterInterface:
     # IMU Methods
     def get_imu_data(self) -> Tuple[List[float], List[float], List[float]]:
         """
-        Get IMU sensor data (auto-reported by the board)
+        Get IMU sensor data - NOTE: ROSMaster library only provides attitude data
+        Raw accelerometer, gyroscope, and magnetometer data are not available
         
         Returns:
             Tuple of (accelerometer, gyroscope, magnetometer) data
-            accelerometer: [ax, ay, az] in m/s²
-            gyroscope: [wx, wy, wz] in rad/s  
-            magnetometer: [mx, my, mz] in µT
+            accelerometer: [ax, ay, az] in m/s² (estimated/default values)
+            gyroscope: [wx, wy, wz] in rad/s (estimated/default values)
+            magnetometer: [mx, my, mz] in µT (estimated/default values)
         """
         if not self.is_connected():
             return ([0.0, 0.0, 9.81], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
             
-        try:
-            with self.lock:
-                # Get auto-reported IMU data
-                ax, ay, az = self.board.get_accelerometer_data()
-                gx, gy, gz = self.board.get_gyroscope_data()
-                mx, my, mz = self.board.get_magnetometer_data()
-                
-                # The data is already in the correct units (m/s², rad/s, µT)
-                return ([ax, ay, az], [gx, gy, gz], [mx, my, mz])
-                
-        except Exception as e:
-            if self.logger:
-                self.logger.error(f"Failed to read IMU: {str(e)}")
-            return ([0.0, 0.0, 9.81], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
+        # ROSMaster library does not provide raw IMU data, only attitude
+        # Return default/estimated values
+        if self.logger:
+            self.logger.warn("Raw IMU data not available from ROSMaster library - use get_imu_attitude() instead")
+        
+        return ([0.0, 0.0, 9.81], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
     
     def get_imu_attitude(self) -> Tuple[float, float, float]:
         """
@@ -444,11 +440,7 @@ def main():
             voltage = interface.get_battery_voltage()
             node.get_logger().info(f"Battery voltage: {voltage}V")
             
-            # Test IMU
-            accel, gyro, mag = interface.get_imu_data()
-            node.get_logger().info(f"IMU - Accel: {accel}, Gyro: {gyro}, Mag: {mag}")
-            
-            # Test attitude
+            # Test attitude (ROSMaster library only provides attitude data)
             roll, pitch, yaw = interface.get_imu_attitude()
             node.get_logger().info(f"Attitude - Roll: {roll:.3f}, Pitch: {pitch:.3f}, Yaw: {yaw:.3f}")
             

@@ -30,7 +30,7 @@ orbibot_hardware_node:
     # Update Rates (Hz)
     rates:
       hardware_update_rate: 50.0 # Main control loop
-      imu_rate: 50.0             # IMU data publishing (reduced for v3.5)
+      imu_rate: 50.0             # IMU data publishing (attitude data only)
       status_rate: 10.0          # System status publishing
       encoder_rate: 50.0         # Encoder data rate
     
@@ -46,7 +46,7 @@ orbibot_hardware_node:
     imu:
       frame_id: "imu_link"
       publish_tf: false
-      # Note: Yahboom ROS expansion board only provides attitude data, not raw IMU
+      # Note: ROSMaster library only provides attitude data, not raw IMU
       use_attitude_only: true
       # Attitude estimation covariance
       orientation_stddev: 0.02       # radians
@@ -55,9 +55,12 @@ orbibot_hardware_node:
     # Motor Configuration
     motors:
       # Motor ID mapping (ROSMaster board motor IDs)
+      # According to Yahboom ROS expansion board documentation:
+      # Motor1 -> UpperLeft (front_left), Motor2 -> BottomLeft (back_left)
+      # Motor3 -> UpperRight (front_right), Motor4 -> BottomRight (back_right)
       front_left_id: 1
-      front_right_id: 2
-      back_left_id: 3  
+      front_right_id: 3
+      back_left_id: 2
       back_right_id: 4
       
       # Motor direction (1 or -1) - adjust based on your wiring
