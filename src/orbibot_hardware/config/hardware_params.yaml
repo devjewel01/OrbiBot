@@ -1,75 +1,89 @@
-# OrbiBot Hardware Parameters
+# OrbiBot Hardware Configuration - V3
+# Compatible with ROSMaster firmware v3.5
 
 orbibot_hardware_node:
   ros__parameters:
     # Hardware Configuration
     hardware:
       serial_port: "/dev/motordriver"
-      baudrate: 115200
-      motor_max_rpm: 333
-      connection_timeout: 5.0
+      baud_rate: 115200
+      car_type: 1                # 1=X3, 2=X3_PLUS, 4=X1, 5=R2
+      motor_max_rpm: 333         # Maximum motor RPM
+      connection_timeout: 5.0    # Connection timeout in seconds
     
     # Robot Physical Parameters  
     robot:
-      wheel_radius: 0.05           # meters (100mm diameter wheels)
-      encoder_cpr: 1320            # counts per revolution (11 PPR * 30 gear ratio)
-      gear_ratio: 30
-      wheel_separation_x: 0.18     # front-back wheel separation
-      wheel_separation_y: 0.30     # left-right wheel separation
-      robot_mass: 8.5              # kg
+      wheel_radius: 0.05         # meters (100mm diameter wheels)
+      encoder_cpr: 1320          # Counts per revolution (11 PPR * 30 gear * 4 quadrature)
+      gear_ratio: 30             # Motor gear ratio
+      wheel_separation_x: 0.18   # Front-back wheel separation (meters)
+      wheel_separation_y: 0.30   # Left-right wheel separation (meters)
+      robot_mass: 8.5            # kg
     
     # Control Parameters
     control:
-      cmd_timeout: 2.0             # seconds - stop if no command received
-      max_velocity: 1.5            # m/s - maximum linear velocity
-      max_angular_velocity: 2.0    # rad/s - maximum angular velocity
-      velocity_ramp_rate: 2.0      # m/s² - acceleration limit
-      emergency_stop_decel: 5.0    # m/s² - emergency deceleration
+      cmd_timeout: 2.0           # seconds - stop if no command received
+      max_velocity: 1.0          # m/s - maximum linear velocity
+      max_angular_velocity: 2.0  # rad/s - maximum angular velocity
+      velocity_ramp_rate: 1.0    # m/s² - acceleration limit
+      emergency_stop_decel: 5.0  # m/s² - emergency deceleration
     
     # Update Rates (Hz)
     rates:
-      hardware_update_rate: 50.0   # Main control loop
-      imu_rate: 100.0             # IMU data publishing
-      status_rate: 10.0           # System status publishing
-      encoder_rate: 50.0          # Encoder data rate
+      hardware_update_rate: 50.0 # Main control loop
+      imu_rate: 50.0            # IMU data publishing (reduced for v3.5)
+      status_rate: 10.0         # System status publishing
+      encoder_rate: 50.0        # Encoder data rate
     
     # Safety Parameters
     safety:
-      battery_low_threshold: 11.0  # Volts - low battery warning
-      battery_critical: 10.5       # Volts - critical battery level
-      temperature_limit: 80.0      # Celsius - temperature warning
-      max_motor_current: 3.0       # Amps - motor current limit
-      watchdog_timeout: 1.0        # seconds - hardware watchdog
+      battery_low_threshold: 11.0    # Volts - low battery warning
+      battery_critical_voltage: 10.5 # Volts - critical battery level (auto-disable)
+      temperature_limit: 80.0        # Celsius - temperature warning
+      max_motor_current: 3.0         # Amps - motor current limit
+      watchdog_timeout: 1.0          # seconds - hardware watchdog
     
     # IMU Configuration
     imu:
       frame_id: "imu_link"
       publish_tf: false
-      linear_acceleration_stddev: 0.01
-      angular_velocity_stddev: 0.01
-      magnetic_field_stddev: 0.01
+      # Note: Firmware v3.5 only provides attitude data, not raw IMU
+      use_attitude_only: true
+      # Attitude estimation covariance
+      orientation_stddev: 0.02       # radians
+      angular_velocity_stddev: 0.05  # rad/s (estimated from attitude change)
     
     # Motor Configuration
     motors:
       # Motor ID mapping (ROSMaster board motor IDs)
       front_left_id: 1
       front_right_id: 2
-      back_left_id: 3
+      back_left_id: 3  
       back_right_id: 4
       
-      # Motor direction (1 or -1)
+      # Motor direction (1 or -1) - adjust based on your wiring
+      # Note: Motor 1 (front left) may need investigation based on diagnostic
       front_left_direction: 1
       front_right_direction: -1
       back_left_direction: 1
       back_right_direction: -1
       
-      # PID parameters (if supported by ROSMaster_Lib)
-      pid_p: 1.0
-      pid_i: 0.1
-      pid_d: 0.01
+      # PID parameters for ROSMaster board
+      pid:
+        kp: 1.0
+        ki: 0.1
+        kd: 0.05
+        save_to_flash: false  # Set true to save permanently
     
     # Diagnostics
     diagnostics:
-      publish_rate: 1.0           # Hz
-      hardware_id: "orbibot_hardware"
+      publish_rate: 1.0          # Hz
+      hardware_id: "orbibot_hardware_v3"
       include_raw_data: false
+    
+    # Debug settings
+    debug:
+      log_encoder_data: false    # Log encoder readings
+      log_motor_commands: false  # Log motor commands
+      log_imu_data: false       # Log IMU data
+      verbose_startup: true     # Verbose startup messages

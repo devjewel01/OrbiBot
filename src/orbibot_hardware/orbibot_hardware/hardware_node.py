@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """
-OrbiBot Hardware Node
-Main hardware interface node for OrbiBot robot
+OrbiBot Hardware Node - Version 3
+Compatible with ROSMaster firmware v3.5
+Handles known limitations of the firmware
 """
 
 import time
 import threading
-from math import pi
+import numpy as np
 import rclpy
 from rclpy.node import Node
-from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
+from rclpy.executors import MultiThreadedExecutor
+from rclpy.callback_groups import ReentrantCallbackGroup
 
 # Messages
 from sensor_msgs.msg import Imu, JointState
@@ -21,14 +23,17 @@ from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
 from orbibot_msgs.msg import WheelSpeeds, MotorFeedback, SystemStatus, SafetyStatus
 from orbibot_msgs.srv import SetMotorEnable, CalibrateIMU, ResetOdometry
 
-# Hardware interface
-from .rosmaster_interface import ROSMasterInterface
+# ROSMaster interface
+try:
+    import Rosmaster_Lib
+    ROSMASTER_AVAILABLE = True
+except ImportError:
+    ROSMASTER_AVAILABLE = False
 
 
 class OrbiBot_Hardware_Node(Node):
     """
-    Main hardware interface node for OrbiBot
-    Handles communication between ROS and physical hardware
+    Hardware interface node for OrbiBot with ROSMaster v3.5 firmware
     """
     
     def __init__(self):
@@ -38,8 +43,8 @@ class OrbiBot_Hardware_Node(Node):
         self.declare_node_parameters()
         self.load_parameters()
         
-        # Hardware interface
-        self.hardware = None
+        # ROSMaster board
+        self.bot = None
         self.hardware_connected = False
         
         # State variables
@@ -48,24 +53,16 @@ class OrbiBot_Hardware_Node(Node):
         self.encoder_positions = [0.0, 0.0, 0.0, 0.0]  # Radians
         self.encoder_velocities = [0.0, 0.0, 0.0, 0.0]  # Rad/s
         self.last_encoder_counts = [0, 0, 0, 0]
+        self.encoder_offsets = [0, 0, 0, 0]  # For software reset
         self.last_encoder_time = time.time()
         
         # Safety state
         self.emergency_stop = False
         self.safety_fault = False
         
-        # QoS profiles
-        self.sensor_qos = QoSProfile(
-            reliability=ReliabilityPolicy.BEST_EFFORT,
-            durability=DurabilityPolicy.VOLATILE,
-            depth=10
-        )
-        
-        self.control_qos = QoSProfile(
-            reliability=ReliabilityPolicy.RELIABLE,
-            durability=DurabilityPolicy.VOLATILE,
-            depth=5
-        )
+        # IMU state (for firmware v3.5 compatibility)
+        self.use_attitude_only = True  # v3.5 doesn't provide raw IMU data
+        self.last_attitude = [0.0, 0.0, 0.0]  # roll, pitch, yaw
         
         # Publishers
         self.create_publishers()
@@ -82,42 +79,39 @@ class OrbiBot_Hardware_Node(Node):
         # Initialize hardware
         self.initialize_hardware()
         
-        self.get_logger().info("OrbiBot Hardware Node initialized")
+        self.get_logger().info("OrbiBot Hardware Node V3 initialized")
     
     def declare_node_parameters(self):
         """Declare ROS parameters"""
-        try:
-            # Hardware parameters
-            self.declare_parameter('hardware.serial_port', '/dev/motordriver')
-            self.declare_parameter('hardware.baudrate', 115200)
-            self.declare_parameter('hardware.motor_max_rpm', 333)
-            
-            # Physical parameters
-            self.declare_parameter('robot.wheel_radius', 0.05)
-            self.declare_parameter('robot.encoder_cpr', 1320)  # Counts per revolution
-            self.declare_parameter('robot.gear_ratio', 30)
-            
-            # Control parameters
-            self.declare_parameter('control.cmd_timeout', 2.0)
-            self.declare_parameter('control.max_velocity', 1.5)
-            self.declare_parameter('control.max_angular_velocity', 2.0)
-            
-            # Update rates
-            self.declare_parameter('rates.hardware_update_rate', 50.0)  # Hz
-            self.declare_parameter('rates.imu_rate', 100.0)
-            self.declare_parameter('rates.status_rate', 10.0)
-            
-            # Safety parameters
-            self.declare_parameter('safety.battery_low_threshold', 11.0)
-            self.declare_parameter('safety.temperature_limit', 80.0)
-        except Exception as e:
-            self.get_logger().error(f"Parameter declaration failed: {str(e)}")
+        # Hardware parameters
+        self.declare_parameter('hardware.serial_port', '/dev/motordriver')
+        self.declare_parameter('hardware.car_type', 1)  # 1=X3, 4=X1, etc.
+        self.declare_parameter('hardware.motor_max_rpm', 333)
+        
+        # Physical parameters
+        self.declare_parameter('robot.wheel_radius', 0.05)
+        self.declare_parameter('robot.encoder_cpr', 1320)
+        self.declare_parameter('robot.gear_ratio', 30)
+        
+        # Control parameters
+        self.declare_parameter('control.cmd_timeout', 2.0)
+        self.declare_parameter('control.max_velocity', 1.5)
+        self.declare_parameter('control.max_angular_velocity', 2.0)
+        
+        # Update rates
+        self.declare_parameter('rates.hardware_update_rate', 50.0)
+        self.declare_parameter('rates.imu_rate', 50.0)  # Reduced for v3.5
+        self.declare_parameter('rates.status_rate', 10.0)
+        
+        # Safety parameters
+        self.declare_parameter('safety.battery_low_threshold', 11.0)
+        self.declare_parameter('safety.battery_critical_voltage', 10.5)
     
     def load_parameters(self):
         """Load parameters from ROS parameter server"""
         # Hardware
         self.serial_port = self.get_parameter('hardware.serial_port').value
-        self.baudrate = self.get_parameter('hardware.baudrate').value
+        self.car_type = self.get_parameter('hardware.car_type').value
         self.motor_max_rpm = self.get_parameter('hardware.motor_max_rpm').value
         
         # Physical
@@ -137,170 +131,161 @@ class OrbiBot_Hardware_Node(Node):
         
         # Safety
         self.battery_low_threshold = self.get_parameter('safety.battery_low_threshold').value
-        self.temperature_limit = self.get_parameter('safety.temperature_limit').value
-        
-        self.get_logger().info(f"Parameters loaded - Serial: {self.serial_port}")
+        self.battery_critical_voltage = self.get_parameter('safety.battery_critical_voltage').value
     
     def create_publishers(self):
         """Create ROS publishers"""
-        # Motor feedback
         self.motor_feedback_pub = self.create_publisher(
-            MotorFeedback, 'orbibot/motor_feedback', self.control_qos)
-        
-        # Joint states for robot_state_publisher
+            MotorFeedback, 'orbibot/motor_feedback', 10)
         self.joint_states_pub = self.create_publisher(
-            JointState, 'joint_states', self.control_qos)
-        
-        # IMU data
+            JointState, 'joint_states', 10)
         self.imu_pub = self.create_publisher(
-            Imu, 'imu/data', self.sensor_qos)
-        
-        # System status
+            Imu, 'imu/data', 10)
         self.system_status_pub = self.create_publisher(
-            SystemStatus, 'orbibot/system_status', self.control_qos)
-        
-        # Safety status
+            SystemStatus, 'orbibot/system_status', 10)
         self.safety_status_pub = self.create_publisher(
-            SafetyStatus, 'orbibot/safety_status', self.control_qos)
-        
-        # Diagnostics
+            SafetyStatus, 'orbibot/safety_status', 10)
         self.diagnostics_pub = self.create_publisher(
-            DiagnosticArray, 'diagnostics', self.control_qos)
+            DiagnosticArray, 'diagnostics', 10)
     
     def create_subscribers(self):
         """Create ROS subscribers"""
-        # Wheel speed commands
         self.wheel_speeds_sub = self.create_subscription(
             WheelSpeeds, 'orbibot/wheel_speeds', 
-            self.wheel_speeds_callback, self.control_qos)
-        
-        # Alternative: cmd_vel subscriber for direct velocity control
+            self.wheel_speeds_callback, 10)
         self.cmd_vel_sub = self.create_subscription(
-            Twist, 'cmd_vel_raw', 
-            self.cmd_vel_callback, self.control_qos)
+            Twist, 'cmd_vel', 
+            self.cmd_vel_callback, 10)
     
     def create_services(self):
         """Create ROS services"""
-        # Motor enable/disable
         self.motor_enable_srv = self.create_service(
             SetMotorEnable, 'orbibot/set_motor_enable', 
             self.set_motor_enable_callback)
-        
-        # IMU calibration
         self.imu_calibration_srv = self.create_service(
             CalibrateIMU, 'orbibot/calibrate_imu',
             self.calibrate_imu_callback)
-        
-        # Reset odometry
         self.reset_odometry_srv = self.create_service(
             ResetOdometry, 'orbibot/reset_odometry',
             self.reset_odometry_callback)
     
     def create_timers(self):
         """Create periodic timers"""
-        # Main hardware update loop
         self.hardware_timer = self.create_timer(
             1.0 / self.hardware_rate, self.hardware_update_callback)
-        
-        # IMU publishing
         self.imu_timer = self.create_timer(
             1.0 / self.imu_rate, self.imu_callback)
-        
-        # Status publishing
         self.status_timer = self.create_timer(
             1.0 / self.status_rate, self.status_callback)
-        
-        # Safety monitoring
         self.safety_timer = self.create_timer(
-            0.1, self.safety_callback)  # 10Hz safety monitoring
+            0.1, self.safety_callback)
     
     def initialize_hardware(self):
         """Initialize hardware connection"""
+        if not ROSMASTER_AVAILABLE:
+            self.get_logger().error('Rosmaster_Lib not available. Install Yahboom drivers.')
+            self.hardware_connected = False
+            return
+        
         try:
-            self.get_logger().info("Initializing hardware connection...")
-            self.hardware = ROSMasterInterface(self.get_logger())
+            self.get_logger().info(f"Initializing ROSMaster board on {self.serial_port}...")
             
-            if self.hardware.is_connected():
-                self.hardware_connected = True
-                # Reset encoders on startup
-                self.hardware.reset_encoders()
-                self.get_logger().info("Hardware initialized successfully")
-            else:
-                self.get_logger().error("Failed to connect to hardware")
-                self.hardware_connected = False
+            # Initialize ROSMaster board
+            self.bot = Rosmaster_Lib.Rosmaster(
+                car_type=self.car_type, 
+                com=self.serial_port, 
+                debug=False
+            )
+            
+            # Critical: Create receive thread for auto-report
+            self.bot.create_receive_threading()
+            time.sleep(0.1)
+            
+            # Critical: Enable auto-report for sensor data
+            self.bot.set_auto_report_state(True, forever=True)
+            time.sleep(0.1)
+            
+            # Beep to indicate successful connection
+            self.bot.set_beep(50)
+            
+            # Get and log version
+            try:
+                version = self.bot.get_version()
+                self.get_logger().info(f"ROSMaster firmware version: {version}")
                 
+                # Check if we have v3.5 limitations
+                if version >= 3.5:
+                    self.use_attitude_only = True
+                    self.get_logger().warn(
+                        "Firmware v3.5 detected - using attitude data only (no raw IMU)")
+            except:
+                self.get_logger().warn("Could not get firmware version")
+            
+            # Initialize motors to stopped
+            self.bot.set_motor(0, 0, 0, 0)
+            
+            # Read initial encoder values
+            self.last_encoder_counts = list(self.bot.get_motor_encoder())
+            
+            self.hardware_connected = True
+            self.get_logger().info("Hardware initialized successfully")
+            
         except Exception as e:
             self.get_logger().error(f"Hardware initialization failed: {str(e)}")
             self.hardware_connected = False
     
-    # Callback Functions
-    def wheel_speeds_callback(self, msg):
-        """Handle wheel speed commands"""
-        if not self.hardware_connected:
-            return
-            
-        # Check software motor enable state
-        if not self.motors_enabled:
-            # Motors are disabled - ignore commands or set to zero
-            self.hardware.stop_all_motors()
-            return
-        
-        # Update command timestamp
-        self.last_cmd_time = time.time()
-        
-        # Apply velocity limits
-        speeds = [msg.front_left, msg.front_right, msg.back_left, msg.back_right]
-        max_speed = max(abs(s) for s in speeds)
-        
-        if max_speed > self.max_velocity:
-            scale = self.max_velocity / max_speed
-            speeds = [s * scale for s in speeds]
-            self.get_logger().warn(f"Velocity limited: scaling by {scale:.2f}")
-        
-        # Send to hardware
-        success = self.hardware.set_wheel_speeds(
-            speeds[0], speeds[1], speeds[2], speeds[3])
-        
-        if not success:
-            self.get_logger().error("Failed to send wheel speeds to hardware")
-    
-    def cmd_vel_callback(self, msg):
-        """Handle cmd_vel commands - convert to wheel speeds"""
+    def cmd_vel_callback(self, msg: Twist):
+        """Handle cmd_vel messages using set_car_motion"""
         if not self.hardware_connected or not self.motors_enabled:
             return
         
-        # Simple mecanum kinematics (you can refine this)
-        vx = msg.linear.x
-        vy = msg.linear.y
-        wz = msg.angular.z
+        self.last_cmd_time = time.time()
         
-        # Wheel base calculations (you may need to adjust these)
-        wheel_separation_x = 0.18  # front-back separation
-        wheel_separation_y = 0.30  # left-right separation
-        wheel_base = (wheel_separation_x + wheel_separation_y) / 2.0
+        # Use set_car_motion for velocity control
+        # Normalize to expected ranges
+        vx = np.clip(msg.linear.x / self.max_velocity, -1.0, 1.0)
+        vy = np.clip(msg.linear.y / self.max_velocity, -1.0, 1.0)
+        vz = np.clip(msg.angular.z / self.max_angular_velocity * 5.0, -5.0, 5.0)
         
-        # Inverse kinematics for mecanum drive
-        front_left = (vx - vy - wz * wheel_base) / self.wheel_radius
-        front_right = (vx + vy + wz * wheel_base) / self.wheel_radius
-        back_left = (vx + vy - wz * wheel_base) / self.wheel_radius
-        back_right = (vx - vy + wz * wheel_base) / self.wheel_radius
+        try:
+            self.bot.set_car_motion(vx, vy, vz)
+        except Exception as e:
+            self.get_logger().error(f"Failed to send motion command: {e}")
+    
+    def wheel_speeds_callback(self, msg: WheelSpeeds):
+        """Handle direct wheel speed commands"""
+        if not self.hardware_connected or not self.motors_enabled:
+            return
         
-        # Convert to wheel speeds message
-        wheel_speeds = WheelSpeeds()
-        wheel_speeds.front_left = front_left * self.wheel_radius
-        wheel_speeds.front_right = front_right * self.wheel_radius
-        wheel_speeds.back_left = back_left * self.wheel_radius
-        wheel_speeds.back_right = back_right * self.wheel_radius
+        self.last_cmd_time = time.time()
         
-        # Use the wheel speeds callback
-        self.wheel_speeds_callback(wheel_speeds)
+        # Convert m/s to PWM (-100 to 100)
+        speeds = [msg.front_left, msg.front_right, msg.back_left, msg.back_right]
+        
+        # Convert to RPM then to PWM percentage
+        pwm_values = []
+        for speed in speeds:
+            rpm = (speed * 60.0) / (2.0 * np.pi * self.wheel_radius)
+            pwm = int((rpm / self.motor_max_rpm) * 100)
+            pwm = np.clip(pwm, -100, 100)
+            pwm_values.append(pwm)
+        
+        try:
+            self.bot.set_motor(*pwm_values)
+        except Exception as e:
+            self.get_logger().error(f"Failed to set wheel speeds: {e}")
     
     def hardware_update_callback(self):
         """Main hardware update loop"""
         if not self.hardware_connected:
             return
         
-        # Read encoder data
+        # Check command timeout
+        if (time.time() - self.last_cmd_time) > self.cmd_timeout and self.motors_enabled:
+            self.get_logger().warn('Command timeout - stopping motors')
+            self.bot.set_motor(0, 0, 0, 0)
+        
+        # Update encoders
         self.update_encoders()
         
         # Publish motor feedback
@@ -316,8 +301,11 @@ class OrbiBot_Hardware_Node(Node):
         
         try:
             # Get current encoder counts
-            current_counts = self.hardware.get_encoder_counts()
+            raw_counts = list(self.bot.get_motor_encoder())
             current_time = time.time()
+            
+            # Apply software offsets
+            current_counts = [raw_counts[i] - self.encoder_offsets[i] for i in range(4)]
             
             # Calculate position and velocity
             dt = current_time - self.last_encoder_time
@@ -328,14 +316,14 @@ class OrbiBot_Hardware_Node(Node):
                     count_diff = current_counts[i] - self.last_encoder_counts[i]
                     
                     # Convert to radians
-                    position_diff = (count_diff / self.encoder_cpr) * 2.0 * pi
+                    position_diff = (count_diff / self.encoder_cpr) * 2.0 * np.pi
                     self.encoder_positions[i] += position_diff
                     
                     # Calculate velocity
                     self.encoder_velocities[i] = position_diff / dt
             
             # Update stored values
-            self.last_encoder_counts = current_counts.copy()
+            self.last_encoder_counts = current_counts
             self.last_encoder_time = current_time
             
         except Exception as e:
@@ -355,12 +343,11 @@ class OrbiBot_Hardware_Node(Node):
         msg.positions = self.encoder_positions
         msg.velocities = self.encoder_velocities
         msg.motor_enabled = [self.motors_enabled] * 4
-        msg.motor_currents = [0.0] * 4  # Not available from ROSMaster_Lib
         
         self.motor_feedback_pub.publish(msg)
     
     def publish_joint_states(self):
-        """Publish joint states for robot_state_publisher"""
+        """Publish joint states for visualization"""
         if not self.hardware_connected:
             return
         
@@ -368,7 +355,6 @@ class OrbiBot_Hardware_Node(Node):
         msg.header = Header()
         msg.header.stamp = self.get_clock().now().to_msg()
         
-        # Joint names must match URDF
         msg.name = [
             'wheel_front_left_joint',
             'wheel_front_right_joint', 
@@ -378,46 +364,77 @@ class OrbiBot_Hardware_Node(Node):
         
         msg.position = self.encoder_positions
         msg.velocity = self.encoder_velocities
-        msg.effort = []  # Not available
+        msg.effort = []
         
         self.joint_states_pub.publish(msg)
     
     def imu_callback(self):
-        """Publish IMU data"""
+        """Publish IMU data (attitude only for v3.5)"""
         if not self.hardware_connected:
             return
         
         try:
-            # Get IMU data from hardware
-            accel, gyro, mag = self.hardware.get_imu_data()
-            
-            # Create IMU message
             msg = Imu()
             msg.header = Header()
             msg.header.stamp = self.get_clock().now().to_msg()
             msg.header.frame_id = 'imu_link'
             
-            # Linear acceleration
-            msg.linear_acceleration.x = accel[0]
-            msg.linear_acceleration.y = accel[1]
-            msg.linear_acceleration.z = accel[2]
-            
-            # Angular velocity
-            msg.angular_velocity.x = gyro[0]
-            msg.angular_velocity.y = gyro[1]
-            msg.angular_velocity.z = gyro[2]
-            
-            # Orientation (not available from raw IMU)
-            msg.orientation.w = 1.0
-            msg.orientation.x = 0.0
-            msg.orientation.y = 0.0
-            msg.orientation.z = 0.0
-            
-            # Covariance matrices (estimated)
-            msg.linear_acceleration_covariance = [0.01, 0, 0, 0, 0.01, 0, 0, 0, 0.01]
-            msg.angular_velocity_covariance = [0.01, 0, 0, 0, 0.01, 0, 0, 0, 0.01]
-            msg.orientation_covariance = [-1] * 9  # Unknown
-            
+            if self.use_attitude_only:
+                # Firmware v3.5 - use attitude data only
+                roll, pitch, yaw = self.bot.get_imu_attitude_data(ToAngle=False)
+                
+                # Convert Euler angles to quaternion
+                cy = np.cos(yaw * 0.5)
+                sy = np.sin(yaw * 0.5)
+                cp = np.cos(pitch * 0.5)
+                sp = np.sin(pitch * 0.5)
+                cr = np.cos(roll * 0.5)
+                sr = np.sin(roll * 0.5)
+                
+                msg.orientation.w = cr * cp * cy + sr * sp * sy
+                msg.orientation.x = sr * cp * cy - cr * sp * sy
+                msg.orientation.y = cr * sp * cy + sr * cp * sy
+                msg.orientation.z = cr * cp * sy - sr * sp * cy
+                
+                # Set orientation covariance (estimated)
+                msg.orientation_covariance = [
+                    0.01, 0, 0,
+                    0, 0.01, 0,
+                    0, 0, 0.01
+                ]
+                
+                # Estimate angular velocity from attitude change
+                if hasattr(self, 'last_attitude_time'):
+                    dt = time.time() - self.last_attitude_time
+                    if dt > 0:
+                        msg.angular_velocity.x = (roll - self.last_attitude[0]) / dt
+                        msg.angular_velocity.y = (pitch - self.last_attitude[1]) / dt
+                        msg.angular_velocity.z = (yaw - self.last_attitude[2]) / dt
+                
+                self.last_attitude = [roll, pitch, yaw]
+                self.last_attitude_time = time.time()
+                
+                # No raw accelerometer data in v3.5
+                msg.linear_acceleration.z = 9.81  # Assume gravity
+                msg.linear_acceleration_covariance = [-1] * 9  # Unknown
+                msg.angular_velocity_covariance = [0.1] * 9
+                
+            else:
+                # Older firmware - use raw IMU data
+                ax, ay, az = self.bot.get_accelerometer_data()
+                gx, gy, gz = self.bot.get_gyroscope_data()
+                
+                msg.linear_acceleration.x = ax
+                msg.linear_acceleration.y = ay
+                msg.linear_acceleration.z = az if az != 0 else 9.81
+                
+                msg.angular_velocity.x = gx
+                msg.angular_velocity.y = gy
+                msg.angular_velocity.z = gz
+                
+                # Orientation not computed from raw data
+                msg.orientation_covariance = [-1] * 9
+                
             self.imu_pub.publish(msg)
             
         except Exception as e:
@@ -429,8 +446,8 @@ class OrbiBot_Hardware_Node(Node):
             return
         
         try:
-            # Get system data
-            battery_voltage = self.hardware.get_battery_voltage()
+            # Get battery voltage
+            battery_voltage = self.bot.get_battery_voltage()
             
             # Create status message
             msg = SystemStatus()
@@ -444,8 +461,54 @@ class OrbiBot_Hardware_Node(Node):
             
             self.system_status_pub.publish(msg)
             
+            # Publish diagnostics
+            self.publish_diagnostics(battery_voltage)
+            
         except Exception as e:
             self.get_logger().error(f"Status publish failed: {str(e)}")
+    
+    def publish_diagnostics(self, battery_voltage):
+        """Publish diagnostic information"""
+        diag_array = DiagnosticArray()
+        diag_array.header.stamp = self.get_clock().now().to_msg()
+        
+        # Hardware status
+        hw_status = DiagnosticStatus()
+        hw_status.name = "OrbiBot Hardware"
+        hw_status.hardware_id = "orbibot_hw"
+        
+        if self.hardware_connected:
+            hw_status.level = DiagnosticStatus.OK
+            hw_status.message = "Hardware connected and operational"
+        else:
+            hw_status.level = DiagnosticStatus.ERROR
+            hw_status.message = "Hardware not connected"
+        
+        hw_status.values.append(KeyValue(key="Battery Voltage", value=f"{battery_voltage:.1f}V"))
+        hw_status.values.append(KeyValue(key="Motors Enabled", value=str(self.motors_enabled)))
+        hw_status.values.append(KeyValue(key="Firmware", value="v3.5"))
+        
+        diag_array.status.append(hw_status)
+        
+        # Motor status
+        motor_status = DiagnosticStatus()
+        motor_status.name = "OrbiBot Motors"
+        motor_status.hardware_id = "orbibot_motors"
+        
+        if self.motors_enabled:
+            motor_status.level = DiagnosticStatus.OK
+            motor_status.message = "Motors enabled"
+        else:
+            motor_status.level = DiagnosticStatus.WARN
+            motor_status.message = "Motors disabled"
+        
+        for i in range(4):
+            motor_status.values.append(
+                KeyValue(key=f"Motor {i+1} Encoder", value=str(self.last_encoder_counts[i])))
+        
+        diag_array.status.append(motor_status)
+        
+        self.diagnostics_pub.publish(diag_array)
     
     def safety_callback(self):
         """Monitor safety conditions"""
@@ -456,8 +519,14 @@ class OrbiBot_Hardware_Node(Node):
         cmd_timeout = time.time() - self.last_cmd_time > self.cmd_timeout
         
         # Check battery voltage
-        battery_voltage = self.hardware.get_battery_voltage()
-        low_battery = battery_voltage < self.battery_low_threshold and battery_voltage > 0
+        try:
+            battery_voltage = self.bot.get_battery_voltage()
+            low_battery = battery_voltage < self.battery_low_threshold and battery_voltage > 0
+            critical_battery = battery_voltage < self.battery_critical_voltage and battery_voltage > 0
+        except:
+            battery_voltage = 0
+            low_battery = False
+            critical_battery = False
         
         # Publish safety status
         msg = SafetyStatus()
@@ -468,40 +537,42 @@ class OrbiBot_Hardware_Node(Node):
         msg.cmd_timeout = cmd_timeout
         msg.low_battery = low_battery
         msg.hardware_fault = not self.hardware_connected
-        msg.velocity_limit = False  # Could be implemented
-        msg.temperature_limit = False  # Could be implemented
         msg.motors_disabled = not self.motors_enabled
-        msg.fault_code = 0
         
         self.safety_status_pub.publish(msg)
         
         # Take safety actions
         if cmd_timeout and self.motors_enabled:
             self.get_logger().warn("Command timeout - stopping motors")
-            self.hardware.stop_all_motors()
+            self.bot.set_motor(0, 0, 0, 0)
         
-        if low_battery:
+        if critical_battery:
+            self.get_logger().error(f"CRITICAL BATTERY: {battery_voltage:.1f}V - Disabling motors")
+            self.emergency_stop = True
+            self.motors_enabled = False
+            self.bot.set_motor(0, 0, 0, 0)
+        elif low_battery:
             self.get_logger().warn(f"Low battery: {battery_voltage:.1f}V")
     
     # Service Callbacks
     def set_motor_enable_callback(self, request, response):
         """Handle motor enable/disable service"""
         try:
-            # Since ROSMaster_Lib doesn't have hardware enable/disable,
-            # we implement it in software by stopping motors when disabled
-            if request.enable:
+            if request.enable and not self.emergency_stop:
                 self.motors_enabled = True
                 response.success = True
-                response.message = "Motors enabled (software)"
+                response.message = "Motors enabled"
                 self.get_logger().info("Motors enabled")
-            else:
-                # Stop all motors when disabling
-                if self.hardware_connected and self.hardware:
-                    self.hardware.stop_all_motors()
+            elif not request.enable:
+                # Always allow disabling
+                self.bot.set_motor(0, 0, 0, 0)
                 self.motors_enabled = False
                 response.success = True
-                response.message = "Motors disabled - all stopped"
-                self.get_logger().info("Motors disabled and stopped")
+                response.message = "Motors disabled"
+                self.get_logger().info("Motors disabled")
+            else:
+                response.success = False
+                response.message = "Cannot enable motors - emergency stop active"
                 
         except Exception as e:
             response.success = False
@@ -512,30 +583,31 @@ class OrbiBot_Hardware_Node(Node):
     
     def calibrate_imu_callback(self, request, response):
         """Handle IMU calibration service"""
-        # This is a placeholder - actual calibration would be more complex
+        # For v3.5 firmware, we can't calibrate raw IMU
         response.success = True
-        response.message = "IMU calibration completed"
-        response.bias_values = [0.0, 0.0, 0.0]  # Placeholder
-        self.get_logger().info("IMU calibration requested")
+        response.message = "IMU calibration not available in firmware v3.5"
+        response.bias_values = [0.0, 0.0, 0.0]
+        self.get_logger().info("IMU calibration requested (not available in v3.5)")
         return response
     
     def reset_odometry_callback(self, request, response):
         """Handle odometry reset service"""
         try:
-            success = self.hardware.reset_encoders()
-            if success:
-                # Reset internal state
-                self.encoder_positions = [0.0, 0.0, 0.0, 0.0]
-                self.encoder_velocities = [0.0, 0.0, 0.0, 0.0]
-                self.last_encoder_counts = [0, 0, 0, 0]
-                
-                response.success = True
-                response.message = "Odometry reset successfully"
-                self.get_logger().info("Odometry reset")
-            else:
-                response.success = False
-                response.message = "Failed to reset encoders"
-                
+            # Get current raw encoder values
+            raw_counts = list(self.bot.get_motor_encoder())
+            
+            # Set these as the new offsets
+            self.encoder_offsets = raw_counts
+            
+            # Reset internal state
+            self.encoder_positions = [0.0, 0.0, 0.0, 0.0]
+            self.encoder_velocities = [0.0, 0.0, 0.0, 0.0]
+            self.last_encoder_counts = [0, 0, 0, 0]
+            
+            response.success = True
+            response.message = "Odometry reset successfully"
+            self.get_logger().info("Odometry reset")
+            
         except Exception as e:
             response.success = False
             response.message = f"Reset error: {str(e)}"
@@ -546,10 +618,16 @@ class OrbiBot_Hardware_Node(Node):
         """Clean shutdown"""
         self.get_logger().info("Shutting down hardware node...")
         
-        if self.hardware_connected and self.hardware:
-            self.hardware.stop_all_motors()
-            self.hardware.set_motor_enable(False)
-            self.hardware.close()
+        if self.hardware_connected and self.bot:
+            try:
+                # Stop all motors
+                self.bot.set_motor(0, 0, 0, 0)
+                # Disable auto-report
+                self.bot.set_auto_report_state(False, forever=False)
+                # Final beep
+                self.bot.set_beep(100)
+            except:
+                pass
         
         self.get_logger().info("Hardware node shutdown complete")
 
@@ -560,15 +638,21 @@ def main(args=None):
     
     try:
         node = OrbiBot_Hardware_Node()
-        rclpy.spin(node)
+        executor = MultiThreadedExecutor(num_threads=4)
+        executor.add_node(node)
         
-    except KeyboardInterrupt:
-        pass
+        try:
+            executor.spin()
+        except KeyboardInterrupt:
+            pass
+        finally:
+            node.cleanup()
+            
     except Exception as e:
         print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
     finally:
-        if 'node' in locals():
-            node.cleanup()
         rclpy.shutdown()
 
 

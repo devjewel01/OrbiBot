@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-ROSMaster_Lib Interface for OrbiBot
+ROSMaster_Lib Interface for OrbiBot - Version 3
 Wrapper for Yahboom expansion board communication
+Compatible with ROSMaster firmware v3.5.1
 """
 
 import time
@@ -10,6 +11,13 @@ from typing import List, Tuple, Optional
 import rclpy
 from rclpy.node import Node
 
+try:
+    import Rosmaster_Lib
+    ROSMASTER_AVAILABLE = True
+except ImportError:
+    ROSMASTER_AVAILABLE = False
+    print("WARNING: Rosmaster_Lib not available - install Yahboom drivers")
+
 
 class ROSMasterInterface:
     """
@@ -17,7 +25,7 @@ class ROSMasterInterface:
     Handles motor control, encoder reading, IMU data, and system status
     """
     
-    def __init__(self, logger=None):
+    def __init__(self, logger=None, car_type=0x01):
         self.logger = logger
         self.board = None
         self.connected = False
@@ -26,12 +34,12 @@ class ROSMasterInterface:
         # Motor parameters
         self.MOTOR_COUNT = 4
         self.GEAR_RATIO = 30
-        self.ENCODER_PPR = 11  # Pulses per revolution
-        self.COUNTS_PER_REV = self.ENCODER_PPR * self.GEAR_RATIO  # 1320 counts/rev
+        self.ENCODER_PPR = 11  # Pulses per revolution (motor shaft)
+        self.COUNTS_PER_REV = self.ENCODER_PPR * self.GEAR_RATIO * 4  # 1320 counts/rev (quadrature)
         self.WHEEL_RADIUS = 0.05  # 50mm radius (100mm diameter)
+        self.MAX_RPM = 333  # Maximum motor RPM
         
         # Motor mapping (board motor ID to robot wheel)
-        # Adjust these based on your physical wiring
         self.MOTOR_MAPPING = {
             'front_left': 1,
             'front_right': 2, 
@@ -39,52 +47,49 @@ class ROSMasterInterface:
             'back_right': 4
         }
         
+        # Car type for ROSMaster board
+        self.car_type = car_type  # 0x01 for X3, 0x04 for X1, etc.
+        
         # Initialize connection
         self._connect()
     
     def _connect(self):
         """Initialize connection to ROSMaster board"""
+        if not ROSMASTER_AVAILABLE:
+            raise ImportError("Rosmaster_Lib not available")
+            
         try:
-            import Rosmaster_Lib
-            
-            # Initialize with correct serial port - we know this works from debug
+            # Initialize with correct serial port
             serial_port = "/dev/motordriver"
-            self.board = Rosmaster_Lib.Rosmaster(com=serial_port)
+            self.board = Rosmaster_Lib.Rosmaster(car_type=self.car_type, com=serial_port, debug=False)
             
-            # Test connection with a simple command that we know exists
-            # Just verify we can communicate - don't call set_motor_enable since it doesn't exist
+            # Create receive thread for auto-reported data
+            self.board.create_receive_threading()
+            time.sleep(0.1)
+            
+            # Enable auto-report (this is critical for getting encoder and sensor data)
+            self.board.set_auto_report_state(True, forever=True)
+            time.sleep(0.1)
+            
+            # Beep to indicate successful connection
+            self.board.set_beep(50)
+            
+            # Get and log version
             try:
-                # Try to get version or battery voltage as a connection test
                 version = self.board.get_version()
                 if self.logger:
                     self.logger.info(f"ROSMaster board version: {version}")
             except:
-                # If get_version fails, try battery voltage
-                try:
-                    voltage = self.board.get_battery_voltage()
-                    if self.logger:
-                        self.logger.info(f"Battery voltage: {voltage}V")
-                except:
-                    # If that fails too, just assume connection is working since serial opened
-                    if self.logger:
-                        self.logger.info("Serial connection established")
+                if self.logger:
+                    self.logger.info("Could not get version - continuing anyway")
             
-            # Set all motors to 0 initially (this is our "disable" equivalent)
-            # set_motor() requires 4 arguments: (speed_1, speed_2, speed_3, speed_4)
+            # Stop all motors initially
             self.board.set_motor(0, 0, 0, 0)
-            
-            time.sleep(0.1)
             
             self.connected = True
             if self.logger:
                 self.logger.info(f"Successfully connected to ROSMaster board at {serial_port}")
                 
-        except ImportError:
-            error_msg = "ROSMaster_Lib not found. Please install Yahboom drivers."
-            if self.logger:
-                self.logger.error(error_msg)
-            raise ImportError(error_msg)
-            
         except Exception as e:
             error_msg = f"Failed to connect to ROSMaster board: {str(e)}"
             if self.logger:
@@ -113,15 +118,31 @@ class ROSMasterInterface:
             
         try:
             with self.lock:
-                # Convert m/s to RPM and clamp to motor limits
-                fl_rpm = max(-333, min(333, int(self._mps_to_rpm(front_left))))
-                fr_rpm = max(-333, min(333, int(self._mps_to_rpm(front_right))))
-                bl_rpm = max(-333, min(333, int(self._mps_to_rpm(back_left))))
-                br_rpm = max(-333, min(333, int(self._mps_to_rpm(back_right))))
+                # Convert m/s to motor PWM values (-100 to 100)
+                # First convert to RPM
+                fl_rpm = self._mps_to_rpm(front_left)
+                fr_rpm = self._mps_to_rpm(front_right)
+                bl_rpm = self._mps_to_rpm(back_left)
+                br_rpm = self._mps_to_rpm(back_right)
                 
-                # set_motor() requires 4 arguments: (speed_1, speed_2, speed_3, speed_4)
-                # Based on motor mapping: front_left=1, front_right=2, back_left=3, back_right=4
-                self.board.set_motor(fl_rpm, fr_rpm, bl_rpm, br_rpm)
+                # Convert RPM to PWM percentage
+                fl_pwm = int((fl_rpm / self.MAX_RPM) * 100)
+                fr_pwm = int((fr_rpm / self.MAX_RPM) * 100)
+                bl_pwm = int((bl_rpm / self.MAX_RPM) * 100)
+                br_pwm = int((br_rpm / self.MAX_RPM) * 100)
+                
+                # Clamp to valid range
+                fl_pwm = max(-100, min(100, fl_pwm))
+                fr_pwm = max(-100, min(100, fr_pwm))
+                bl_pwm = max(-100, min(100, bl_pwm))
+                br_pwm = max(-100, min(100, br_pwm))
+                
+                # Log the motor commands for debugging
+                if self.logger and (fl_pwm != 0 or fr_pwm != 0 or bl_pwm != 0 or br_pwm != 0):
+                    self.logger.debug(f"Motor PWM: FL={fl_pwm}, FR={fr_pwm}, BL={bl_pwm}, BR={br_pwm}")
+                
+                # set_motor() takes PWM values from -100 to 100
+                self.board.set_motor(fl_pwm, fr_pwm, bl_pwm, br_pwm)
                 
                 return True
                 
@@ -132,7 +153,14 @@ class ROSMasterInterface:
     
     def stop_all_motors(self) -> bool:
         """Stop all motors immediately"""
-        return self.set_wheel_speeds(0.0, 0.0, 0.0, 0.0)
+        if not self.is_connected():
+            return False
+            
+        try:
+            self.board.set_motor(0, 0, 0, 0)
+            return True
+        except:
+            return False
     
     def set_motor_enable(self, enable: bool) -> bool:
         """Enable or disable all motors"""
@@ -141,14 +169,10 @@ class ROSMasterInterface:
             
         try:
             with self.lock:
-                # ROSMaster_Lib doesn't seem to have a direct set_motor_enable method
-                # Instead, we can stop all motors by setting speed to 0 when disabled
+                # Since there's no hardware enable/disable, we stop motors when disabled
                 if not enable:
-                    # Stop all motors when disabling
                     self.board.set_motor(0, 0, 0, 0)
                 
-                # Store enable state for our logic
-                # Note: This is a software state since ROSMaster_Lib doesn't have hardware enable/disable
                 return True
                 
         except Exception as e:
@@ -160,6 +184,7 @@ class ROSMasterInterface:
     def get_encoder_counts(self) -> List[int]:
         """
         Get raw encoder counts for all motors
+        The ROSMaster board auto-reports encoder data via get_motor_encoder()
         
         Returns:
             List of encoder counts [front_left, front_right, back_left, back_right]
@@ -169,12 +194,9 @@ class ROSMasterInterface:
             
         try:
             with self.lock:
-                # API Debug confirmed: get_motor_encoder() returns tuple (0, 0, 0, 0)
-                encoder_data = self.board.get_motor_encoder()
-                if isinstance(encoder_data, (tuple, list)) and len(encoder_data) >= 4:
-                    return list(encoder_data[:4])  # Convert tuple to list
-                else:
-                    return [0, 0, 0, 0]
+                # Get encoder data that is auto-reported by the board
+                m1, m2, m3, m4 = self.board.get_motor_encoder()
+                return [m1, m2, m3, m4]
                 
         except Exception as e:
             if self.logger:
@@ -182,21 +204,21 @@ class ROSMasterInterface:
             return [0, 0, 0, 0]
     
     def reset_encoders(self) -> bool:
-        """Reset all encoder counts to zero - not supported by ROSMaster_Lib"""
+        """Reset all encoder counts to zero"""
         if not self.is_connected():
             return False
             
+        # ROSMaster_Lib doesn't have a direct encoder reset function
+        # The encoders accumulate continuously
         if self.logger:
-            self.logger.warn("Encoder reset not supported by ROSMaster_Lib - using software reset")
+            self.logger.warn("Encoder reset not supported by ROSMaster_Lib - use software offset")
         
-        # Since hardware reset is not available, we'll track offset in software
-        # This is handled by the hardware node resetting its internal counters
         return True
     
     # IMU Methods
     def get_imu_data(self) -> Tuple[List[float], List[float], List[float]]:
         """
-        Get IMU sensor data using official API
+        Get IMU sensor data (auto-reported by the board)
         
         Returns:
             Tuple of (accelerometer, gyroscope, magnetometer) data
@@ -205,64 +227,74 @@ class ROSMasterInterface:
             magnetometer: [mx, my, mz] in µT
         """
         if not self.is_connected():
-            return ([0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
+            return ([0.0, 0.0, 9.81], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
             
         try:
             with self.lock:
-                # API Debug confirmed these return tuples: (0, 0, 0)
-                accel = self.board.get_accelerometer_data()
-                gyro = self.board.get_gyroscope_data()
-                mag = self.board.get_magnetometer_data()
+                # Get auto-reported IMU data
+                ax, ay, az = self.board.get_accelerometer_data()
+                gx, gy, gz = self.board.get_gyroscope_data()
+                mx, my, mz = self.board.get_magnetometer_data()
                 
-                # Convert tuples to lists with 3 elements and ensure all are floats
-                accel = list(accel) if isinstance(accel, (tuple, list)) and len(accel) >= 3 else [0.0, 0.0, 0.0]
-                gyro = list(gyro) if isinstance(gyro, (tuple, list)) and len(gyro) >= 3 else [0.0, 0.0, 0.0]
-                mag = list(mag) if isinstance(mag, (tuple, list)) and len(mag) >= 3 else [0.0, 0.0, 0.0]
-                
-                # Ensure exactly 3 elements and convert to float
-                accel = [float(x) for x in (accel[:3] + [0.0] * (3 - len(accel)) if len(accel) < 3 else accel[:3])]
-                gyro = [float(x) for x in (gyro[:3] + [0.0] * (3 - len(gyro)) if len(gyro) < 3 else gyro[:3])]
-                mag = [float(x) for x in (mag[:3] + [0.0] * (3 - len(mag)) if len(mag) < 3 else mag[:3])]
-                
-                return (accel, gyro, mag)
+                # The data is already in the correct units (m/s², rad/s, µT)
+                return ([ax, ay, az], [gx, gy, gz], [mx, my, mz])
                 
         except Exception as e:
             if self.logger:
                 self.logger.error(f"Failed to read IMU: {str(e)}")
-            return ([0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
+            return ([0.0, 0.0, 9.81], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
     
-    # System Status Methods
-    def get_battery_voltage(self) -> float:
-        """Get battery voltage in Volts"""
-        if not self.is_connected():
-            return 0.0
-            
-        try:
-            with self.lock:
-                # Official API: get_battery_voltage(self) - Get the battery voltage
-                voltage = self.board.get_battery_voltage()
-                return float(voltage) if voltage is not None else 0.0
-        except Exception as e:
-            if self.logger:
-                self.logger.error(f"Failed to read battery voltage: {str(e)}")
-            return 0.0
-    
-    def get_motion_data(self) -> Tuple[float, float, float]:
+    def get_imu_attitude(self) -> Tuple[float, float, float]:
         """
-        Get robot motion data using official API
-        Returns: (vx, vy, vz) - robot velocities
+        Get IMU attitude angles (auto-calculated by the board)
+        
+        Returns:
+            Tuple of (roll, pitch, yaw) in radians
         """
         if not self.is_connected():
             return (0.0, 0.0, 0.0)
             
         try:
             with self.lock:
-                # Official API: get_motion_data(self) - Get car speed, val_vx, val_vy, val_vz
-                motion_data = self.board.get_motion_data()
-                if isinstance(motion_data, (list, tuple)) and len(motion_data) >= 3:
-                    return (float(motion_data[0]), float(motion_data[1]), float(motion_data[2]))
-                else:
-                    return (0.0, 0.0, 0.0)
+                # Get attitude data in radians (False = radians, True = degrees)
+                roll, pitch, yaw = self.board.get_imu_attitude_data(ToAngle=False)
+                return (roll, pitch, yaw)
+                
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Failed to read IMU attitude: {str(e)}")
+            return (0.0, 0.0, 0.0)
+    
+    # System Status Methods
+    def get_battery_voltage(self) -> float:
+        """Get battery voltage in Volts (auto-reported by the board)"""
+        if not self.is_connected():
+            return 12.0  # Return nominal voltage
+            
+        try:
+            with self.lock:
+                voltage = self.board.get_battery_voltage()
+                # Validate voltage reading
+                if voltage is None or voltage <= 0 or voltage > 20:
+                    return 12.0
+                return float(voltage)
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Failed to read battery voltage: {str(e)}")
+            return 12.0
+    
+    def get_motion_data(self) -> Tuple[float, float, float]:
+        """
+        Get robot motion data (auto-reported velocities)
+        Returns: (vx, vy, vz) - robot velocities in m/s and rad/s
+        """
+        if not self.is_connected():
+            return (0.0, 0.0, 0.0)
+            
+        try:
+            with self.lock:
+                vx, vy, vz = self.board.get_motion_data()
+                return (vx, vy, vz)
         except Exception as e:
             if self.logger:
                 self.logger.error(f"Failed to read motion data: {str(e)}")
@@ -270,20 +302,16 @@ class ROSMasterInterface:
     
     def set_car_motion(self, vx: float, vy: float, vz: float) -> bool:
         """
-        Alternative motion control using official API
-        vx=[-1.0, 1.0], vy=[-1.0, 1.0], vz=[-5.0, 5.0]
+        Alternative motion control using velocity commands
+        vx=[-1.0, 1.0] m/s, vy=[-1.0, 1.0] m/s, vz=[-5.0, 5.0] rad/s
         """
         if not self.is_connected():
             return False
             
         try:
             with self.lock:
-                # Clamp values to valid ranges
-                vx = max(-1.0, min(1.0, vx))
-                vy = max(-1.0, min(1.0, vy))  
-                vz = max(-5.0, min(5.0, vz))
-                
-                # Official API: set_car_motion(self, v_x, v_y, v_z)
+                # The board expects values in specific ranges
+                # vx, vy: [-1.0, 1.0], vz: [-5.0, 5.0]
                 self.board.set_car_motion(vx, vy, vz)
                 return True
         except Exception as e:
@@ -291,18 +319,32 @@ class ROSMasterInterface:
                 self.logger.error(f"Failed to set car motion: {str(e)}")
             return False
     
-    def set_buzzer(self, frequency: int, duration: float) -> bool:
-        """Control buzzer using correct API method"""
+    def set_car_run(self, state: int, speed: int, adjust: bool = False) -> bool:
+        """
+        Simple car movement control
+        state: 0=stop, 1=forward, 2=backward, 3=left, 4=right, 5=spin left, 6=spin right
+        speed: [-100, 100]
+        adjust: Enable gyroscope-assisted movement
+        """
         if not self.is_connected():
             return False
             
         try:
             with self.lock:
-                # According to official API: set_beep(self, on_time)
-                # on_time>=10: rings for xx milliseconds (multiple of 10)
-                duration_ms = max(10, int(duration * 1000))
-                # Round to nearest multiple of 10
-                duration_ms = (duration_ms // 10) * 10
+                self.board.set_car_run(state, speed, adjust)
+                return True
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Failed to set car run: {str(e)}")
+            return False
+    
+    def set_buzzer(self, duration_ms: int) -> bool:
+        """Control buzzer (0=off, 1=continuous, >=10=duration in ms)"""
+        if not self.is_connected():
+            return False
+            
+        try:
+            with self.lock:
                 self.board.set_beep(duration_ms)
                 return True
         except Exception as e:
@@ -311,24 +353,49 @@ class ROSMasterInterface:
             return False
     
     def set_rgb_led(self, led_id: int, r: int, g: int, b: int) -> bool:
-        """Control RGB LEDs using correct API method"""
+        """Control RGB LEDs (led_id: 0-13 or 0xFF for all)"""
         if not self.is_connected():
             return False
             
         try:
             with self.lock:
-                # According to official API: set_colorful_lamps(self, led_id, red, green, blue)
-                # led_id=[0, 13], 0xFF for all lights
-                # First stop any light effects
-                self.board.set_colorful_effect(0)  # Stop light effects
-                time.sleep(0.1)
-                # Set the specific LED
+                # Stop any light effects first
+                self.board.set_colorful_effect(0)
+                time.sleep(0.01)
+                # Set the LED color
                 self.board.set_colorful_lamps(led_id, r, g, b)
                 return True
         except Exception as e:
             if self.logger:
                 self.logger.error(f"Failed to control LED: {str(e)}")
             return False
+    
+    def set_pid_parameters(self, kp: float, ki: float, kd: float, forever: bool = False) -> bool:
+        """Set motor PID parameters (0-10.0)"""
+        if not self.is_connected():
+            return False
+            
+        try:
+            with self.lock:
+                self.board.set_pid_param(kp, ki, kd, forever)
+                return True
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Failed to set PID: {str(e)}")
+            return False
+    
+    def get_pid_parameters(self) -> List[float]:
+        """Get current motor PID parameters"""
+        if not self.is_connected():
+            return [-1, -1, -1]
+            
+        try:
+            with self.lock:
+                return self.board.get_motion_pid()
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Failed to get PID: {str(e)}")
+            return [-1, -1, -1]
     
     # Utility Methods
     def _mps_to_rpm(self, mps: float) -> float:
@@ -344,8 +411,13 @@ class ROSMasterInterface:
     def close(self):
         """Clean shutdown"""
         if self.is_connected():
-            self.stop_all_motors()
-            self.set_motor_enable(False)
+            try:
+                self.stop_all_motors()
+                # Disable auto-report to reduce USB traffic on shutdown
+                self.board.set_auto_report_state(False, forever=False)
+                time.sleep(0.1)
+            except:
+                pass
             
         self.connected = False
         if self.logger:
@@ -365,35 +437,57 @@ def main():
         interface = ROSMasterInterface(node.get_logger())
         
         if interface.is_connected():
-            node.get_logger().info("Testing motor control...")
+            node.get_logger().info("Testing ROSMaster interface...")
             
-            # Enable motors
-            interface.set_motor_enable(True)
-            time.sleep(0.5)
-            
-            # Test forward motion
-            interface.set_wheel_speeds(0.1, 0.1, 0.1, 0.1)
-            time.sleep(2.0)
-            
-            # Stop
-            interface.stop_all_motors()
+            # Test battery voltage
+            voltage = interface.get_battery_voltage()
+            node.get_logger().info(f"Battery voltage: {voltage}V")
             
             # Test IMU
             accel, gyro, mag = interface.get_imu_data()
-            node.get_logger().info(f"IMU - Accel: {accel}, Gyro: {gyro}")
+            node.get_logger().info(f"IMU - Accel: {accel}, Gyro: {gyro}, Mag: {mag}")
             
-            # Test encoders
-            counts = interface.get_encoder_counts()
-            node.get_logger().info(f"Encoder counts: {counts}")
+            # Test attitude
+            roll, pitch, yaw = interface.get_imu_attitude()
+            node.get_logger().info(f"Attitude - Roll: {roll:.3f}, Pitch: {pitch:.3f}, Yaw: {yaw:.3f}")
             
-            # Test battery
-            voltage = interface.get_battery_voltage()
-            node.get_logger().info(f"Battery voltage: {voltage}V")
+            # Test encoders before movement
+            node.get_logger().info("\nTesting encoders...")
+            initial_counts = interface.get_encoder_counts()
+            node.get_logger().info(f"Initial encoder counts: {initial_counts}")
+            
+            # Test motor movement
+            node.get_logger().info("\nTesting motors (forward at 0.1 m/s)...")
+            interface.set_wheel_speeds(0.1, 0.1, 0.1, 0.1)
+            
+            # Monitor encoders during movement
+            for i in range(20):
+                counts = interface.get_encoder_counts()
+                motion = interface.get_motion_data()
+                node.get_logger().info(f"  {i}: Encoders: {counts}, Motion: {motion}")
+                time.sleep(0.1)
+            
+            # Stop motors
+            interface.stop_all_motors()
+            
+            # Final encoder reading
+            final_counts = interface.get_encoder_counts()
+            node.get_logger().info(f"\nFinal encoder counts: {final_counts}")
+            
+            # Calculate encoder changes
+            changes = [final_counts[i] - initial_counts[i] for i in range(4)]
+            node.get_logger().info(f"Encoder changes: {changes}")
+            
+            # Test buzzer
+            node.get_logger().info("\nTesting buzzer...")
+            interface.set_buzzer(100)  # 100ms beep
             
         interface.close()
         
     except Exception as e:
         node.get_logger().error(f"Test failed: {str(e)}")
+        import traceback
+        traceback.print_exc()
     
     finally:
         rclpy.shutdown()
