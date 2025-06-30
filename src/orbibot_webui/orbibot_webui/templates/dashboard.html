@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OrbiBot Monitor</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            overflow-x: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(90deg, #16213e, #0f3460);
+            padding: 15px 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        
+        .header h1 {
+            color: #4facfe;
+            font-size: 24px;
+            font-weight: 300;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .card h3 {
+            color: #4facfe;
+            margin-bottom: 15px;
+            font-size: 18px;
+            border-bottom: 2px solid #4facfe;
+            padding-bottom: 5px;
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        
+        .status-item {
+            background: rgba(0,0,0,0.2);
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .status-label {
+            font-size: 12px;
+            color: #aaa;
+            margin-bottom: 5px;
+        }
+        
+        .status-value {
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        .status-ok { color: #00ff88; }
+        .status-warning { color: #ffaa00; }
+        .status-error { color: #ff4444; }
+        
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .data-row:last-child {
+            border-bottom: none;
+        }
+        
+        .data-label {
+            color: #aaa;
+            font-size: 14px;
+        }
+        
+        .data-value {
+            color: #fff;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .connection-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .connected {
+            background: rgba(0, 255, 136, 0.2);
+            color: #00ff88;
+            border: 1px solid #00ff88;
+        }
+        
+        .disconnected {
+            background: rgba(255, 68, 68, 0.2);
+            color: #ff4444;
+            border: 1px solid #ff4444;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                padding: 0 10px;
+            }
+            
+            .status-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🤖 OrbiBot Live Monitor</h1>
+    </div>
+    
+    <div class="connection-status" id="connectionStatus">Connecting...</div>
+    
+    <div class="container">
+        <!-- System Status -->
+        <div class="card">
+            <h3>🔋 System Status</h3>
+            <div class="status-grid">
+                <div class="status-item">
+                    <div class="status-label">Battery</div>
+                    <div class="status-value" id="batteryVoltage">--</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Motors</div>
+                    <div class="status-value" id="motorsEnabled">--</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Hardware</div>
+                    <div class="status-value" id="hardwareOk">--</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">E-Stop</div>
+                    <div class="status-value" id="emergencyStop">--</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Motor Feedback -->
+        <div class="card">
+            <h3>⚙️ Motor Feedback</h3>
+            <div class="data-row">
+                <span class="data-label">Front Left</span>
+                <span class="data-value" id="motorFL">0 | 0.00</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">Front Right</span>
+                <span class="data-value" id="motorFR">0 | 0.00</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">Back Left</span>
+                <span class="data-value" id="motorBL">0 | 0.00</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">Back Right</span>
+                <span class="data-value" id="motorBR">0 | 0.00</span>
+            </div>
+        </div>
+        
+        <!-- IMU Data -->
+        <div class="card">
+            <h3>🧭 IMU Sensor</h3>
+            <div class="data-row">
+                <span class="data-label">Acceleration</span>
+                <span class="data-value" id="acceleration">0.00, 0.00, 0.00</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">Angular Velocity</span>
+                <span class="data-value" id="angularVelocity">0.00, 0.00, 0.00</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">Orientation</span>
+                <span class="data-value" id="orientation">0.00, 0.00, 0.00</span>
+            </div>
+        </div>
+        
+        <!-- Odometry -->
+        <div class="card">
+            <h3>📍 Odometry</h3>
+            <div class="data-row">
+                <span class="data-label">Position (X, Y)</span>
+                <span class="data-value" id="position">0.00, 0.00</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">Heading</span>
+                <span class="data-value" id="heading">0.00°</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">Velocity</span>
+                <span class="data-value" id="velocity">0.00, 0.00, 0.00</span>
+            </div>
+        </div>
+        
+        <!-- Command Status -->
+        <div class="card">
+            <h3>🎮 Command Status</h3>
+            <div class="data-row">
+                <span class="data-label">Linear Cmd</span>
+                <span class="data-value" id="cmdLinear">0.00, 0.00, 0.00</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">Angular Cmd</span>
+                <span class="data-value" id="cmdAngular">0.00, 0.00, 0.00</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">Last Received</span>
+                <span class="data-value" id="cmdLastReceived">Never</span>
+            </div>
+        </div>
+        
+        <!-- Safety Status -->
+        <div class="card">
+            <h3>🛡️ Safety Monitor</h3>
+            <div class="status-grid">
+                <div class="status-item">
+                    <div class="status-label">Cmd Timeout</div>
+                    <div class="status-value" id="cmdTimeout">--</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Low Battery</div>
+                    <div class="status-value" id="lowBattery">--</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">HW Fault</div>
+                    <div class="status-value" id="hardwareFault">--</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Update Rate</div>
+                    <div class="status-value" id="updateRate">-- Hz</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let lastUpdateTime = 0;
+        let updateCount = 0;
+        
+        function formatNumber(num, decimals = 2) {
+            return Number(num).toFixed(decimals);
+        }
+        
+        function formatTime(timestamp) {
+            if (!timestamp) return 'Never';
+            const now = Date.now() / 1000;
+            const diff = now - timestamp;
+            if (diff < 60) return `${Math.floor(diff)}s ago`;
+            if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+            return `${Math.floor(diff/3600)}h ago`;
+        }
+        
+        function updateStatus(elementId, value, trueClass = 'status-ok', falseClass = 'status-error') {
+            const element = document.getElementById(elementId);
+            const text = value ? 'OK' : 'FAIL';
+            const className = value ? trueClass : falseClass;
+            element.textContent = text;
+            element.className = `status-value ${className}`;
+        }
+        
+        function updateData() {
+            fetch('/api/sensors')
+                .then(response => response.json())
+                .then(data => {
+                    // Connection status
+                    document.getElementById('connectionStatus').className = 'connection-status connected';
+                    document.getElementById('connectionStatus').textContent = '● Connected';
+                    
+                    // System status
+                    const battery = data.system_status.battery_voltage;
+                    const batteryElement = document.getElementById('batteryVoltage');
+                    batteryElement.textContent = `${formatNumber(battery, 1)}V`;
+                    if (battery < 11.0) batteryElement.className = 'status-value status-error';
+                    else if (battery < 11.5) batteryElement.className = 'status-value status-warning';
+                    else batteryElement.className = 'status-value status-ok';
+                    
+                    updateStatus('motorsEnabled', data.system_status.motors_enabled);
+                    updateStatus('hardwareOk', data.system_status.hardware_ok);
+                    updateStatus('emergencyStop', !data.system_status.emergency_stop);
+                    
+                    // Motor feedback
+                    const motors = data.motor_feedback;
+                    document.getElementById('motorFL').textContent = `${motors.encoder_counts[0]} | ${formatNumber(motors.velocities[0])}`;
+                    document.getElementById('motorFR').textContent = `${motors.encoder_counts[1]} | ${formatNumber(motors.velocities[1])}`;
+                    document.getElementById('motorBL').textContent = `${motors.encoder_counts[2]} | ${formatNumber(motors.velocities[2])}`;
+                    document.getElementById('motorBR').textContent = `${motors.encoder_counts[3]} | ${formatNumber(motors.velocities[3])}`;
+                    
+                    // IMU data
+                    const imu = data.imu;
+                    document.getElementById('acceleration').textContent = 
+                        `${formatNumber(imu.linear_acceleration[0])}, ${formatNumber(imu.linear_acceleration[1])}, ${formatNumber(imu.linear_acceleration[2])}`;
+                    document.getElementById('angularVelocity').textContent = 
+                        `${formatNumber(imu.angular_velocity[0])}, ${formatNumber(imu.angular_velocity[1])}, ${formatNumber(imu.angular_velocity[2])}`;
+                    document.getElementById('orientation').textContent = 
+                        `${formatNumber(imu.orientation[0])}, ${formatNumber(imu.orientation[1])}, ${formatNumber(imu.orientation[2])}`;
+                    
+                    // Odometry
+                    const odom = data.odometry;
+                    document.getElementById('position').textContent = `${formatNumber(odom.position[0])}, ${formatNumber(odom.position[1])}`;
+                    document.getElementById('heading').textContent = `${formatNumber(odom.position[2] * 180 / Math.PI, 1)}°`;
+                    document.getElementById('velocity').textContent = 
+                        `${formatNumber(odom.velocity[0])}, ${formatNumber(odom.velocity[1])}, ${formatNumber(odom.velocity[2])}`;
+                    
+                    // Command status
+                    const cmd = data.cmd_vel;
+                    document.getElementById('cmdLinear').textContent = 
+                        `${formatNumber(cmd.linear[0])}, ${formatNumber(cmd.linear[1])}, ${formatNumber(cmd.linear[2])}`;
+                    document.getElementById('cmdAngular').textContent = 
+                        `${formatNumber(cmd.angular[0])}, ${formatNumber(cmd.angular[1])}, ${formatNumber(cmd.angular[2])}`;
+                    document.getElementById('cmdLastReceived').textContent = formatTime(cmd.last_received);
+                    
+                    // Safety status
+                    const safety = data.safety_status;
+                    updateStatus('cmdTimeout', !safety.cmd_timeout);
+                    updateStatus('lowBattery', !safety.low_battery);
+                    updateStatus('hardwareFault', !safety.hardware_fault);
+                    
+                    // Update rate calculation
+                    const now = Date.now() / 1000;
+                    if (lastUpdateTime > 0) {
+                        updateCount++;
+                        if (updateCount % 10 === 0) {
+                            const rate = 10 / (now - lastUpdateTime) * 10;
+                            document.getElementById('updateRate').textContent = `${formatNumber(rate, 1)} Hz`;
+                            lastUpdateTime = now;
+                        }
+                    } else {
+                        lastUpdateTime = now;
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('connectionStatus').className = 'connection-status disconnected';
+                    document.getElementById('connectionStatus').textContent = '● Disconnected';
+                    console.error('Update error:', error);
+                });
+        }
+        
+        // Update every 100ms for smooth display
+        setInterval(updateData, 100);
+        
+        // Initial update
+        updateData();
+    </script>
+</body>
+</html>
