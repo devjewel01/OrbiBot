@@ -3,6 +3,8 @@ build/
 install/
 log/
 devel/
+test/
+src/*/test/
 
 # ROS 2 specific files
 *.bag
