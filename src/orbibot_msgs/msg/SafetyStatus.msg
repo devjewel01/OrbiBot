@@ -1,3 +1,5 @@
+# msg/SafetyStatus.msg 
+
 # Safety system status
 std_msgs/Header header
 

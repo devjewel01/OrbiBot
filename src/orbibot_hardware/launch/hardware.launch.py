@@ -35,14 +35,8 @@ def generate_launch_description():
         description='Serial port for motor driver'
     )
     
-    declare_debug = DeclareLaunchArgument(
-        'debug',
-        default_value='false',
-        description='Enable debug output'
-    )
-    
     declare_start_enabled = DeclareLaunchArgument(
-        'start_enabled',
+        'motors_enabled',
         default_value='false',
         description='Start with motors enabled'
     )
@@ -50,8 +44,7 @@ def generate_launch_description():
     # Launch configuration variables
     use_sim_time = LaunchConfiguration('use_sim_time')
     serial_port = LaunchConfiguration('serial_port')
-    debug = LaunchConfiguration('debug')
-    start_enabled = LaunchConfiguration('start_enabled')
+    motors_enabled = LaunchConfiguration('motors_enabled')
     
     # Hardware interface node
     hardware_node = Node(
@@ -82,46 +75,21 @@ def generate_launch_description():
                 package='orbibot_hardware',
                 executable='motor_enable_client',
                 name='motor_enable_startup',
-                parameters=[{'enable': start_enabled}],
-                condition=IfCondition(start_enabled)
+                parameters=[{'enable': motors_enabled}],
+                condition=IfCondition(motors_enabled)
             )
         ]
-    )
-    
-    # Device permissions checker (debug mode only)
-    permissions_checker = Node(
-        package='orbibot_hardware', 
-        executable='check_permissions',
-        name='permissions_checker',
-        output='screen',
-        condition=IfCondition(debug)
-    )
-    
-    # Hardware monitor (debug mode only)
-    hardware_monitor = Node(
-        package='orbibot_hardware',
-        executable='hardware_monitor', 
-        name='hardware_monitor',
-        output='screen',
-        parameters=[
-            {'monitor_rate': 1.0},
-            {'use_sim_time': use_sim_time}
-        ],
-        condition=IfCondition(debug)
     )
     
     return LaunchDescription([
         # Arguments
         declare_use_sim_time,
         declare_serial_port,
-        declare_debug,
         declare_start_enabled,
         
         # Nodes
         hardware_node,
-        permissions_checker,
-        hardware_monitor,
-        
+     
         # Delayed actions
         motor_enable_cmd,
     ])

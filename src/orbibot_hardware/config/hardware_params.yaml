@@ -1,13 +1,12 @@
-# OrbiBot Hardware Configuration - V3
-# Compatible with ROSMaster firmware v3.5
-
+# OrbiBot Hardware Configuration 
+# config/hardware_params.yaml
 orbibot_hardware_node:
   ros__parameters:
     # Hardware Configuration
     hardware:
       serial_port: "/dev/motordriver"
       baud_rate: 115200
-      car_type: 1                # 1=X3, 2=X3_PLUS, 4=X1, 5=R2
+      car_type: 1                # 1=X3, 2=X3_PLUS, 4=X1, 5=R2 ( Yahboom Robot Model )
       motor_max_rpm: 333         # Maximum motor RPM
       connection_timeout: 5.0    # Connection timeout in seconds
     
@@ -18,7 +17,7 @@ orbibot_hardware_node:
       gear_ratio: 30             # Motor gear ratio
       wheel_separation_x: 0.18   # Front-back wheel separation (meters)
       wheel_separation_y: 0.30   # Left-right wheel separation (meters)
-      robot_mass: 8.5            # kg
+      robot_mass: 6              # kg
     
     # Control Parameters
     control:
@@ -31,9 +30,9 @@ orbibot_hardware_node:
     # Update Rates (Hz)
     rates:
       hardware_update_rate: 50.0 # Main control loop
-      imu_rate: 50.0            # IMU data publishing (reduced for v3.5)
-      status_rate: 10.0         # System status publishing
-      encoder_rate: 50.0        # Encoder data rate
+      imu_rate: 50.0             # IMU data publishing (reduced for v3.5)
+      status_rate: 10.0          # System status publishing
+      encoder_rate: 50.0         # Encoder data rate
     
     # Safety Parameters
     safety:
@@ -47,7 +46,7 @@ orbibot_hardware_node:
     imu:
       frame_id: "imu_link"
       publish_tf: false
-      # Note: Firmware v3.5 only provides attitude data, not raw IMU
+      # Note: Yahboom ROS expansion board only provides attitude data, not raw IMU
       use_attitude_only: true
       # Attitude estimation covariance
       orientation_stddev: 0.02       # radians

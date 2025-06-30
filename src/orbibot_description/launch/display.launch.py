@@ -20,20 +20,20 @@ def generate_launch_description():
     xacro_file = os.path.join(pkg_path, 'urdf', 'orbibot.urdf.xacro')
     
     # Path to RViz config
-    rviz_config_file = os.path.join(pkg_path, 'rviz', 'orbibot_description.rviz')
+    rviz_config_file = os.path.join(pkg_path, 'rviz', 'orbibot.rviz')
 
     # Launch configuration variables
     use_sim_time = LaunchConfiguration('use_sim_time')
     use_ros2_control = LaunchConfiguration('use_ros2_control')
 
     # Declare launch arguments
-    declare_use_sim_time_cmd = DeclareLaunchArgument(
+    declare_use_sim_time = DeclareLaunchArgument(
         'use_sim_time',
         default_value='false',
         description='Use sim time if true'
     )
     
-    declare_use_ros2_control_cmd = DeclareLaunchArgument(
+    declare_use_ros2_control = DeclareLaunchArgument(
         'use_ros2_control',
         default_value='true',
         description='Use ros2_control if true'
@@ -56,36 +56,26 @@ def generate_launch_description():
         }]
     )
 
-    # Joint State Publisher GUI node (for manual joint control)
-    joint_state_publisher_gui_node = Node(
-        package='joint_state_publisher_gui',
-        executable='joint_state_publisher_gui',
-        name='joint_state_publisher_gui',
-        output='screen',
-        parameters=[{'use_sim_time': use_sim_time}]
-    )
-
-    # RViz node
-    rviz_node = Node(
-        package='rviz2',
-        executable='rviz2',
-        name='rviz2',
-        output='screen',
-        arguments=['-d', rviz_config_file] if os.path.exists(rviz_config_file) else [],
-        parameters=[{'use_sim_time': use_sim_time}]
-    )
+    # RViz node run from my computer and other node run on robot raspberry pi
+    # rviz_node = Node(
+    #     package='rviz2',
+    #     executable='rviz2',
+    #     name='rviz2',
+    #     output='screen',
+    #     arguments=['-d', rviz_config_file] if os.path.exists(rviz_config_file) else [],
+    #     parameters=[{'use_sim_time': use_sim_time}]
+    # )
 
     # Create the launch description and populate
     ld = LaunchDescription()
 
     # Add the declarations
-    ld.add_action(declare_use_sim_time_cmd)
-    ld.add_action(declare_use_ros2_control_cmd)
+    ld.add_action(declare_use_sim_time)
+    ld.add_action(declare_use_ros2_control)
 
     # Add the nodes
     ld.add_action(robot_state_publisher_node)
-    ld.add_action(joint_state_publisher_gui_node)
-    ld.add_action(rviz_node)
+    # ld.add_action(rviz_node)
 
     return ld
 

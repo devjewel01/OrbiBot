@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-OrbiBot Hardware Node - Version 3
-Compatible with ROSMaster firmware v3.5
-Handles known limitations of the firmware
+orbibot_hardware/hardware_node.py
+OrbiBot Hardware Node
 """
 
 import time
@@ -33,7 +32,7 @@ except ImportError:
 
 class OrbiBot_Hardware_Node(Node):
     """
-    Hardware interface node for OrbiBot with ROSMaster v3.5 firmware
+    Hardware interface node for OrbiBot
     """
     
     def __init__(self):
@@ -79,7 +78,7 @@ class OrbiBot_Hardware_Node(Node):
         # Initialize hardware
         self.initialize_hardware()
         
-        self.get_logger().info("OrbiBot Hardware Node V3 initialized")
+        self.get_logger().info("OrbiBot Hardware Node")
     
     def declare_node_parameters(self):
         """Declare ROS parameters"""
@@ -136,22 +135,22 @@ class OrbiBot_Hardware_Node(Node):
     def create_publishers(self):
         """Create ROS publishers"""
         self.motor_feedback_pub = self.create_publisher(
-            MotorFeedback, 'orbibot/motor_feedback', 10)
+            MotorFeedback, '/orbibot/motor_feedback', 10)
         self.joint_states_pub = self.create_publisher(
-            JointState, 'joint_states', 10)
+            JointState, '/joint_states', 10)
         self.imu_pub = self.create_publisher(
-            Imu, 'imu/data', 10)
+            Imu, '/imu/data', 10)
         self.system_status_pub = self.create_publisher(
-            SystemStatus, 'orbibot/system_status', 10)
+            SystemStatus, '/orbibot/system_status', 10)
         self.safety_status_pub = self.create_publisher(
-            SafetyStatus, 'orbibot/safety_status', 10)
+            SafetyStatus, '/orbibot/safety_status', 10)
         self.diagnostics_pub = self.create_publisher(
-            DiagnosticArray, 'diagnostics', 10)
+            DiagnosticArray, '/diagnostics', 10)
     
     def create_subscribers(self):
         """Create ROS subscribers"""
         self.wheel_speeds_sub = self.create_subscription(
-            WheelSpeeds, 'orbibot/wheel_speeds', 
+            WheelSpeeds, '/orbibot/wheel_speeds', 
             self.wheel_speeds_callback, 10)
         self.cmd_vel_sub = self.create_subscription(
             Twist, '/cmd_vel', 
@@ -160,13 +159,13 @@ class OrbiBot_Hardware_Node(Node):
     def create_services(self):
         """Create ROS services"""
         self.motor_enable_srv = self.create_service(
-            SetMotorEnable, 'orbibot/set_motor_enable', 
+            SetMotorEnable, '/orbibot/set_motor_enable', 
             self.set_motor_enable_callback)
         self.imu_calibration_srv = self.create_service(
-            CalibrateIMU, 'orbibot/calibrate_imu',
+            CalibrateIMU, '/orbibot/calibrate_imu',
             self.calibrate_imu_callback)
         self.reset_odometry_srv = self.create_service(
-            ResetOdometry, 'orbibot/reset_odometry',
+            ResetOdometry, '/orbibot/reset_odometry',
             self.reset_odometry_callback)
     
     def create_timers(self):
@@ -183,7 +182,7 @@ class OrbiBot_Hardware_Node(Node):
     def initialize_hardware(self):
         """Initialize hardware connection"""
         if not ROSMASTER_AVAILABLE:
-            self.get_logger().error('Rosmaster_Lib not available. Install Yahboom drivers.')
+            self.get_logger().error('Rosmaster_Lib not available. Install Yahboom Rosmaster drivers.')
             self.hardware_connected = False
             return
         

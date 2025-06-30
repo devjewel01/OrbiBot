@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-ROSMaster_Lib Interface for OrbiBot - Version 3
+orbibot_hardware/rosmaster_interface.py
+ROSMaster_Lib Interface for OrbiBot 
 Wrapper for Yahboom expansion board communication
 Compatible with ROSMaster firmware v3.5.1
 """

@@ -1,3 +1,4 @@
+# config/control_params.yaml
 orbibot_control_manager:
   ros__parameters:
     # Robot physical parameters (must match hardware_params.yaml)

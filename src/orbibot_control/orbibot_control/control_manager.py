@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """
+orbibot_control/control_manager.py
 OrbiBot Control Manager - Simplified
 Provides high-level control coordination and monitoring
 Hardware node handles direct kinematics, PID, and motor control
