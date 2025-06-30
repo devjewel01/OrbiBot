@@ -32,7 +32,7 @@ class OrbiBot_Control_Manager(Node):
         super().__init__('orbibot_control_manager')
         
         # Load parameters
-        self.declare_parameters()
+        self.declare_robot_parameters()
         self.load_parameters()
         
         # State variables
@@ -85,7 +85,7 @@ class OrbiBot_Control_Manager(Node):
         self.get_logger().info("OrbiBot Control Manager initialized")
         self.get_logger().info("Hardware node handles direct cmd_vel → motion control")
     
-    def declare_parameters(self):
+    def declare_robot_parameters(self):
         """Declare ROS parameters"""
         # Physical parameters (for odometry calculation)
         self.declare_parameter('robot.wheel_radius', 0.05)
@@ -232,10 +232,12 @@ class OrbiBot_Control_Manager(Node):
         
         # Check for old data
         if not self.system_ok:
-            self.get_logger().warn_throttle(5.0, "Hardware not connected")
+            rclpy.logging.get_logger('orbibot_control_manager').warn(
+                "Hardware not connected", throttle_duration_sec=5.0)
         
         if not self.motors_enabled:
-            self.get_logger().info_throttle(10.0, "Motors disabled - use service to enable")
+            rclpy.logging.get_logger('orbibot_control_manager').info(
+                "Motors disabled - use service to enable", throttle_duration_sec=10.0)
     
     def enable_motors(self, enable: bool = True):
         """Enable or disable motors via service call"""

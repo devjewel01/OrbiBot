@@ -39,7 +39,7 @@ def generate_launch_description():
     # Control manager launch  
     control_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
-            os.path.join(control_pkg, 'launch', 'control_manager.launch.py')
+            os.path.join(control_pkg, 'launch', 'control.launch.py')
         ]),
         launch_arguments={
             'use_sim_time': use_sim_time
