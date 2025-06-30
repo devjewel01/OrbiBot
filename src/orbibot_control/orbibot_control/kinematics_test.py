@@ -4,8 +4,8 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from orbibot_msgs.msg import WheelSpeeds
-from .mecanum_kinematics import MecanumKinematics
 import time
+import math
 
 class KinematicsTest(Node):
     """Test node for mecanum kinematics"""
@@ -13,7 +13,11 @@ class KinematicsTest(Node):
     def __init__(self):
         super().__init__('kinematics_test')
         
-        self.kinematics = MecanumKinematics()
+        # Robot parameters (must match hardware)
+        self.wheel_radius = 0.05  # 50mm
+        self.wheel_separation_x = 0.18  # 180mm
+        self.wheel_separation_y = 0.30  # 300mm
+        self.wheel_base = (self.wheel_separation_x + self.wheel_separation_y) / 2.0
         
         # Publishers
         self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 10)
@@ -39,6 +43,22 @@ class KinematicsTest(Node):
             [0.1, 0.1, 0.3, "COMPLEX_MOTION"],
         ]
     
+    def inverse_kinematics(self, vx, vy, wz):
+        """Convert robot velocity to wheel speeds"""
+        front_left = (vx - vy - wz * self.wheel_base) / self.wheel_radius
+        front_right = (vx + vy + wz * self.wheel_base) / self.wheel_radius
+        back_left = (vx + vy - wz * self.wheel_base) / self.wheel_radius
+        back_right = (vx - vy + wz * self.wheel_base) / self.wheel_radius
+        return [front_left, front_right, back_left, back_right]
+    
+    def forward_kinematics(self, wheel_speeds):
+        """Convert wheel speeds to robot velocity"""
+        fl, fr, bl, br = wheel_speeds
+        vx = self.wheel_radius * (fl + fr + bl + br) / 4.0
+        vy = self.wheel_radius * (-fl + fr + bl - br) / 4.0
+        wz = self.wheel_radius * (-fl + fr - bl + br) / (4.0 * self.wheel_base)
+        return vx, vy, wz
+    
     def run_test(self):
         if self.test_count >= len(self.test_cases):
             self.get_logger().info("All tests completed")
@@ -46,11 +66,11 @@ class KinematicsTest(Node):
         
         vx, vy, wz, description = self.test_cases[self.test_count]
         
-        # Calculate wheel speeds
-        wheel_speeds = self.kinematics.inverse_kinematics(vx, vy, wz)
+        # Calculate wheel speeds using mecanum kinematics
+        wheel_speeds = self.inverse_kinematics(vx, vy, wz)
         
         # Verify with forward kinematics
-        vx_calc, vy_calc, wz_calc = self.kinematics.forward_kinematics(wheel_speeds)
+        vx_calc, vy_calc, wz_calc = self.forward_kinematics(wheel_speeds)
         
         self.get_logger().info(f"\n--- Test {self.test_count + 1}: {description} ---")
         self.get_logger().info(f"Input:  vx={vx:.2f}, vy={vy:.2f}, wz={wz:.2f}")

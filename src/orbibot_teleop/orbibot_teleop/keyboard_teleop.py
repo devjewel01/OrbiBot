@@ -6,11 +6,15 @@ from geometry_msgs.msg import Twist
 from orbibot_msgs.msg import SystemStatus
 from orbibot_msgs.srv import SetMotorEnable
 import sys
-import termios
-import tty
 import select
 import threading
 import time
+try:
+    import termios
+    import tty
+    TERMIOS_AVAILABLE = True
+except ImportError:
+    TERMIOS_AVAILABLE = False
 
 class KeyboardTeleop(Node):
     """
@@ -46,12 +50,16 @@ class KeyboardTeleop(Node):
         
         # State variables
         self.current_twist = Twist()
-        self.motors_enabled = False
+        self.motors_enabled = True  # Start with motors enabled for testing
         self.emergency_stop = False
-        self.battery_voltage = 0.0
+        self.battery_voltage = 12.0  # Default safe voltage for testing
+        
+        # Movement state for press-and-hold
+        self.pressed_keys = set()
+        self.key_lock = threading.Lock()
         
         # Terminal settings
-        self.settings = termios.tcgetattr(sys.stdin)
+        self.setup_terminal()
         
         # Key bindings
         self.key_bindings = {
@@ -73,8 +81,12 @@ class KeyboardTeleop(Node):
         self.print_instructions()
         
         # Start input thread
-        self.input_thread = threading.Thread(target=self.keyboard_input_loop, daemon=True)
-        self.input_thread.start()
+        if self.terminal_available:
+            self.input_thread = threading.Thread(target=self.keyboard_input_loop, daemon=True)
+            self.input_thread.start()
+        
+        # Timer for movement updates (higher frequency for smooth movement)
+        self.movement_timer = self.create_timer(0.05, self.update_movement)  # 20Hz
         
         # Timer for publishing commands
         self.cmd_timer = self.create_timer(0.1, self.publish_cmd_vel)  # 10Hz
@@ -83,6 +95,7 @@ class KeyboardTeleop(Node):
         self.status_timer = self.create_timer(1.0, self.print_status)  # 1Hz
         
         self.get_logger().info("Keyboard Teleop Node Started")
+        self.get_logger().warn("⚠️  Running in TESTING MODE - Hardware connection not required")
         self.get_logger().info("Waiting for motor enable service...")
         self.motor_enable_client.wait_for_service(timeout_sec=5.0)
     
@@ -106,15 +119,36 @@ class KeyboardTeleop(Node):
     
     def system_status_callback(self, msg):
         """Handle system status updates"""
-        self.motors_enabled = msg.motors_enabled
-        self.emergency_stop = msg.emergency_stop
-        self.battery_voltage = msg.battery_voltage
+        # Only update from system status if battery voltage is reasonable
+        if msg.battery_voltage > 1.0:  # Valid battery reading
+            self.motors_enabled = msg.motors_enabled
+            self.battery_voltage = msg.battery_voltage
+        # emergency_stop is handled internally, not from system status
+    
+    def setup_terminal(self):
+        """Setup terminal for input detection"""
+        try:
+            if TERMIOS_AVAILABLE:
+                self.settings = termios.tcgetattr(sys.stdin)
+                self.terminal_available = True
+                self.use_raw_input = True
+                self.get_logger().info("✅ Raw terminal input available (press-and-hold mode)")
+            else:
+                self.terminal_available = True
+                self.use_raw_input = False
+                self.get_logger().warn("⚠️  Using line input mode (press key + ENTER)")
+        except Exception as e:
+            self.terminal_available = True
+            self.use_raw_input = False
+            self.get_logger().warn(f"⚠️  Terminal setup failed: {e}, using line input")
     
     def print_instructions(self):
         """Print control instructions"""
-        instructions = """
+        mode_text = "Hold key to move continuously" if self.use_raw_input else "Press key + ENTER for each command"
+        instructions = f"""
 ╔═══════════════════════════════════════════════════════════════╗
 ║                    🤖 OrbiBot Keyboard Control                ║
+║                    ({mode_text})                   ║
 ╠═══════════════════════════════════════════════════════════════╣
 ║ MOVEMENT:                          ROTATION:                  ║
 ║   W : Forward                        Q : Rotate Left          ║
@@ -128,11 +162,12 @@ class KeyboardTeleop(Node):
 ║                                                               ║
 ║ ROBOT CONTROL:                     OTHER:                     ║
 ║   T : Toggle Motors On/Off           SPACE : Stop Motion      ║
-║   X : Emergency Stop                 ESC   : Quit Program     ║
+║   X : Emergency Stop                 Ctrl+C : Quit Program    ║
 ╚═══════════════════════════════════════════════════════════════╝
 
-Current Speed: {:.0%} Linear, {:.0%} Angular
-""".format(self.linear_speed, self.angular_speed)
+Current Speed: {self.linear_speed:.0%} Linear, {self.angular_speed:.0%} Angular
+💡 Mode: {'Press-and-hold' if self.use_raw_input else 'Line input (SSH/RDP compatible)'}
+"""
         print(instructions)
     
     def print_status(self):
@@ -147,25 +182,93 @@ Current Speed: {:.0%} Linear, {:.0%} Angular
     
     def get_key(self):
         """Get a single keypress"""
-        tty.setraw(sys.stdin.fileno())
-        select.select([sys.stdin], [], [], 0)
-        key = sys.stdin.read(1)
-        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.settings)
-        return key
+        if self.use_raw_input:
+            try:
+                tty.setraw(sys.stdin.fileno())
+                key = sys.stdin.read(1)
+                termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.settings)
+                return key
+            except Exception:
+                return ''
+        else:
+            try:
+                # Line input fallback for SSH/RDP
+                line = input()
+                return line[0].lower() if line else ''
+            except (EOFError, KeyboardInterrupt):
+                return '\x03'  # Ctrl+C
+            except Exception:
+                return ''
     
     def keyboard_input_loop(self):
         """Main keyboard input loop"""
         try:
-            while rclpy.ok():
-                if select.select([sys.stdin], [], [], 0.1) == ([sys.stdin], [], []):
-                    key = self.get_key().lower()
-                    self.process_key(key)
-                time.sleep(0.01)
+            if self.use_raw_input:
+                # Raw input - can detect key press/release patterns
+                while rclpy.ok():
+                    if select.select([sys.stdin], [], [], 0.01) == ([sys.stdin], [], []):
+                        key = self.get_key().lower()
+                        if key:
+                            self.process_key_raw(key)
+                    else:
+                        # No input - check for key release simulation
+                        time.sleep(0.01)
+            else:
+                # Line input - each key press is a command
+                while rclpy.ok():
+                    key = self.get_key()
+                    if key:
+                        self.process_key_line(key)
         except Exception as e:
             self.get_logger().error(f"Keyboard input error: {e}")
     
-    def process_key(self, key):
-        """Process keyboard input"""
+    def process_key_raw(self, key):
+        """Process keyboard input for raw mode (press-and-hold)"""
+        if key == '\x1b':  # ESC key
+            self.get_logger().info("ESC pressed - shutting down...")
+            self.cleanup()
+            rclpy.shutdown()
+            return
+        elif key == '\x03':  # Ctrl+C
+            self.get_logger().info("Ctrl+C pressed - shutting down...")
+            self.cleanup()
+            rclpy.shutdown()
+            return
+        elif key == ' ':  # Space - stop
+            with self.key_lock:
+                self.pressed_keys.clear()
+            self.get_logger().info("🛑 STOP")
+        elif key == 'x':  # Emergency stop
+            with self.key_lock:
+                self.pressed_keys.clear()
+            self.emergency_stop = True
+            self.get_logger().warn("🚨 EMERGENCY STOP!")
+        elif key == 't':  # Toggle motors
+            self.toggle_motors()
+        elif key == 'r':  # Increase speed
+            self.linear_speed = min(1.0, self.linear_speed + self.speed_step)
+            self.angular_speed = min(1.0, self.angular_speed + self.angular_step)
+            self.get_logger().info(f"⬆️ Speed increased to {self.linear_speed:.0%}")
+        elif key == 'f':  # Decrease speed
+            self.linear_speed = max(0.1, self.linear_speed - self.speed_step)
+            self.angular_speed = max(0.1, self.angular_speed - self.angular_step)
+            self.get_logger().info(f"⬇️ Speed decreased to {self.linear_speed:.0%}")
+        elif key in self.key_bindings:
+            # Movement keys - add to pressed keys
+            with self.key_lock:
+                if key not in self.pressed_keys:
+                    self.pressed_keys.add(key)
+                    movement_names = {
+                        'w': '⬆️ Forward', 's': '⬇️ Backward', 'a': '⬅️ Strafe Left', 'd': '➡️ Strafe Right',
+                        'q': '↺ Rotate Left', 'e': '↻ Rotate Right',
+                        'i': '↖️ Forward-Left', 'o': '↗️ Forward-Right', 
+                        'k': '↙️ Backward-Left', 'l': '↘️ Backward-Right'
+                    }
+                    if key in movement_names:
+                        self.get_logger().info(f"{movement_names[key]} - HOLD")
+    
+    def process_key_line(self, key):
+        """Process keyboard input for line mode (press ENTER)"""
         if key == '\x1b':  # ESC key
             self.get_logger().info("ESC pressed - shutting down...")
             self.cleanup()
@@ -194,7 +297,7 @@ Current Speed: {:.0%} Linear, {:.0%} Angular
             self.angular_speed = max(0.1, self.angular_speed - self.angular_step)
             self.get_logger().info(f"⬇️ Speed decreased to {self.linear_speed:.0%}")
         elif key in self.key_bindings:
-            # Movement commands
+            # Movement commands - immediate execution
             vx_dir, vy_dir, wz_dir = self.key_bindings[key]
             
             self.current_twist.linear.x = vx_dir * self.max_linear_speed * self.linear_speed
@@ -213,6 +316,34 @@ Current Speed: {:.0%} Linear, {:.0%} Angular
         else:
             # Unknown key - stop motion
             self.current_twist = Twist()
+    
+    def update_movement(self):
+        """Update movement based on currently pressed keys (raw mode only)"""
+        if not self.use_raw_input:
+            return
+            
+        with self.key_lock:
+            if not self.pressed_keys:
+                # No keys pressed - stop
+                self.current_twist = Twist()
+                return
+            
+            # Calculate combined movement from all pressed keys
+            vx_total, vy_total, wz_total = 0.0, 0.0, 0.0
+            
+            for key in self.pressed_keys:
+                if key in self.key_bindings:
+                    vx_dir, vy_dir, wz_dir = self.key_bindings[key]
+                    vx_total += vx_dir
+                    vy_total += vy_dir
+                    wz_total += wz_dir
+            
+            # Normalize and apply speed limits
+            max_component = max(abs(vx_total), abs(vy_total), abs(wz_total), 1.0)
+            
+            self.current_twist.linear.x = (vx_total / max_component) * self.max_linear_speed * self.linear_speed
+            self.current_twist.linear.y = (vy_total / max_component) * self.max_linear_speed * self.linear_speed
+            self.current_twist.angular.z = (wz_total / max_component) * self.max_angular_speed * self.angular_speed
     
     def toggle_motors(self):
         """Toggle motor enable state"""
@@ -251,8 +382,16 @@ Current Speed: {:.0%} Linear, {:.0%} Angular
         stop_twist = Twist()
         self.cmd_vel_pub.publish(stop_twist)
         
-        # Restore terminal settings
-        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.settings)
+        # Clear pressed keys
+        with self.key_lock:
+            self.pressed_keys.clear()
+        
+        # Restore terminal settings if using raw input
+        if self.use_raw_input and TERMIOS_AVAILABLE:
+            try:
+                termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.settings)
+            except Exception:
+                pass
         
         print("\n👋 Goodbye!")
 

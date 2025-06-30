@@ -3,6 +3,10 @@ build/
 install/
 log/
 devel/
+test/
+src/*/test/
+resource/
+src/*/resource/
 
 # ROS 2 Data Files
 *.bag
@@ -78,3 +82,4 @@ datasets/
 models/
 weights/
 checkpoints/
+

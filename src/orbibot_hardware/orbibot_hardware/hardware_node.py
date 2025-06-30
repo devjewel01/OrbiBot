@@ -154,7 +154,7 @@ class OrbiBot_Hardware_Node(Node):
             WheelSpeeds, 'orbibot/wheel_speeds', 
             self.wheel_speeds_callback, 10)
         self.cmd_vel_sub = self.create_subscription(
-            Twist, 'cmd_vel', 
+            Twist, '/cmd_vel', 
             self.cmd_vel_callback, 10)
     
     def create_services(self):

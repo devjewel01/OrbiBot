@@ -19,12 +19,12 @@ setup(
     zip_safe=True,
     maintainer='jewel',
     maintainer_email='jewel.nath@orbitax.com',
-    description='Mecanum wheel control package for OrbiBot',
+    description='Simplified control package for OrbiBot (hardware handles direct control)',
     license='MIT',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'mecanum_controller = orbibot_control.mecanum_controller:main',
+            'control_manager = orbibot_control.control_manager:main',
             'kinematics_test = orbibot_control.kinematics_test:main',
             'system_test = orbibot_control.system_test:main',
         ],

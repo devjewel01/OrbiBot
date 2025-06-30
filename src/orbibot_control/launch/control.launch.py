@@ -11,9 +11,8 @@ def generate_launch_description():
     # Get package directory
     pkg_dir = get_package_share_directory('orbibot_control')
     
-    # Configuration file paths
+    # Configuration file path
     control_config = os.path.join(pkg_dir, 'config', 'control_params.yaml')
-    mecanum_config = os.path.join(pkg_dir, 'config', 'mecanum_params.yaml')
     
     # Launch arguments
     use_sim_time = LaunchConfiguration('use_sim_time')
@@ -24,14 +23,13 @@ def generate_launch_description():
         description='Use simulation time if true'
     )
     
-    # Mecanum controller node
-    mecanum_controller_node = Node(
+    # Control manager node
+    control_manager_node = Node(
         package='orbibot_control',
-        executable='mecanum_controller',
-        name='mecanum_controller',
+        executable='control_manager',
+        name='orbibot_control_manager',
         parameters=[
             control_config,
-            mecanum_config,
             {'use_sim_time': use_sim_time}
         ],
         output='screen',
@@ -40,5 +38,5 @@ def generate_launch_description():
     
     return LaunchDescription([
         declare_use_sim_time,
-        mecanum_controller_node
+        control_manager_node
     ])

@@ -8,14 +8,7 @@ from launch_ros.actions import Node
 def generate_launch_description():
     
     # Launch arguments
-    teleop_type = LaunchConfiguration('teleop_type')
     use_sim_time = LaunchConfiguration('use_sim_time')
-    
-    declare_teleop_type = DeclareLaunchArgument(
-        'teleop_type',
-        default_value='keyboard',
-        description='Type of teleop to use: keyboard or simple'
-    )
     
     declare_use_sim_time = DeclareLaunchArgument(
         'use_sim_time',
@@ -36,26 +29,10 @@ def generate_launch_description():
             {'angular_step': 0.2}
         ],
         output='screen',
-        emulate_tty=True,
-        condition='launch.conditions.IfCondition(launch.substitutions.EqualsSubstitution(teleop_type, "keyboard"))'
-    )
-    
-    # Simple teleop node  
-    simple_teleop_node = Node(
-        package='orbibot_teleop',
-        executable='simple_teleop',
-        name='simple_teleop',
-        parameters=[
-            {'use_sim_time': use_sim_time}
-        ],
-        output='screen',
-        emulate_tty=True,
-        condition='launch.conditions.IfCondition(launch.substitutions.EqualsSubstitution(teleop_type, "simple"))'
+        emulate_tty=True
     )
     
     return LaunchDescription([
-        declare_teleop_type,
         declare_use_sim_time,
-        keyboard_teleop_node,
-        simple_teleop_node
+        keyboard_teleop_node
     ])

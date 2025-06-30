@@ -1,25 +1,18 @@
-mecanum_controller:
+orbibot_control_manager:
   ros__parameters:
-    # Velocity limits
-    max_linear_velocity: 1.5      # m/s
-    max_angular_velocity: 2.0     # rad/s
-    cmd_timeout: 2.0              # seconds
+    # Robot physical parameters (must match hardware_params.yaml)
+    robot:
+      wheel_radius: 0.05            # m (50mm radius, 100mm diameter)
+      wheel_separation_x: 0.18      # m (180mm front-back)
+      wheel_separation_y: 0.30      # m (300mm left-right)
     
     # Control settings
-    use_pid_control: true
-    control_frequency: 50.0       # Hz
+    control:
+      publish_tf: true              # Publish odom→base_link transform
+      odom_frame: "odom"            # Odometry frame name
+      base_frame: "base_link"       # Robot base frame name
     
-    # Physical parameters
-    wheel_radius: 0.05            # m (50mm)
-    wheel_separation_x: 0.18      # m (180mm front-back)
-    wheel_separation_y: 0.30      # m (300mm left-right)
-    
-    # PID parameters
-    pid_kp: 1.0
-    pid_ki: 0.1
-    pid_kd: 0.05
-    
-    # Safety parameters
-    max_acceleration: 2.0         # m/s²
-    max_angular_acceleration: 3.0 # rad/s²
-    emergency_deceleration: 5.0   # m/s²
+    # Monitoring settings
+    monitor:
+      cmd_timeout_warning: 5.0      # seconds - warn if no cmd_vel for this long
+      system_check_rate: 10.0       # Hz - system health check rate

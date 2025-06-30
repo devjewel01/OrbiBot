@@ -18,13 +18,12 @@ setup(
     zip_safe=True,
     maintainer='jewel',
     maintainer_email='jewel.nath@orbitax.com',
-    description='Keyboard and simple teleoperation package for OrbiBot',
+    description='Keyboard teleoperation package for OrbiBot',
     license='MIT',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'keyboard_teleop = orbibot_teleop.keyboard_teleop:main',
-            'simple_teleop = orbibot_teleop.simple_teleop:main',
         ],
     },
 )
