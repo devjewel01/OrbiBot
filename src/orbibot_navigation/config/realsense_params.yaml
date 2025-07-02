@@ -1,0 +1,156 @@
+/**:
+  ros__parameters:
+    
+    # RealSense Camera Integration Parameters
+    realsense_camera:
+      # Camera configuration
+      device_type: "D435"
+      serial_no: ""
+      usb_port_id: ""
+      device_type: ""
+      json_file_path: ""
+      
+      # Enable streams
+      enable_color: true
+      enable_depth: true
+      enable_infra1: false
+      enable_infra2: false
+      enable_fisheye: false
+      enable_gyro: false
+      enable_accel: false
+      
+      # RGB stream
+      color_width: 640
+      color_height: 480
+      color_fps: 30
+      
+      # Depth stream  
+      depth_width: 640
+      depth_height: 480
+      depth_fps: 30
+      
+      # Processing options
+      pointcloud_texture_stream: "RS2_STREAM_COLOR"
+      pointcloud_texture_index: 0
+      enable_pointcloud: true
+      pointcloud_width: 640
+      pointcloud_height: 480
+      
+      # Filters
+      decimation_filter.enable: false
+      spatial_filter.enable: true
+      temporal_filter.enable: true
+      hole_filling_filter.enable: true
+      
+      # Frame IDs
+      base_frame_id: "camera_link"
+      depth_frame_id: "camera_depth_frame"
+      color_frame_id: "camera_color_frame"
+      infra_frame_id: "camera_infra_frame"
+      
+      # TF publish
+      publish_tf: true
+      tf_publish_rate: 0.0
+      
+    # Visual Odometry Parameters
+    visual_odometry:
+      # RTAB-Map Visual Odometry
+      frame_id: "base_link"
+      odom_frame_id: "visual_odom"
+      publish_tf: true
+      publish_null_when_lost: false
+      guess_frame_id: ""
+      
+      # Visual odometry parameters
+      Vis/EstimationType: "1"        # 0=3D->3D, 1=3D->2D (PnP)
+      Vis/FeatureType: "6"           # 0=SURF 1=SIFT 2=ORB 3=FAST/FREAK 4=FAST/BRIEF 5=GFTT/FREAK 6=GFTT/BRIEF 7=BRISK 8=GFTT/ORB 9=KAZE
+      Vis/MaxDepth: "4.0"            # Max depth of the features (0 means no limit)
+      Vis/MinInliers: "20"           # Minimum feature correspondences to compute/accept the transformation
+      
+      # Odometry reset
+      OdomF2M/MaxSize: "1000"        # Maximum features map size
+      Odom/Strategy: "0"             # 0=Frame-to-Map, 1=Frame-to-Frame
+      Odom/ResetCountdown: "0"       # Reset odometry after X consecutive images (0=disabled)
+      
+    # Depth Image to LaserScan Parameters
+    depthimage_to_laserscan:
+      output_frame_id: "camera_depth_frame"
+      range_min: 0.45
+      range_max: 4.0
+      scan_height: 10
+      scan_time: 0.033  # 30 FPS
+      angle_min: -0.52  # -30 degrees
+      angle_max: 0.52   # +30 degrees
+      angle_increment: 0.0087  # 0.5 degrees
+      
+    # Point Cloud to LaserScan Parameters  
+    pointcloud_to_laserscan:
+      transform_tolerance: 0.01
+      min_height: -0.5
+      max_height: 1.0
+      angle_min: -1.5708  # -90 degrees
+      angle_max: 1.5708   # +90 degrees
+      angle_increment: 0.0087  # 0.5 degrees
+      scan_time: 0.033
+      range_min: 0.45
+      range_max: 4.0
+      use_inf: true
+      inf_epsilon: 1.0
+      
+    # Obstacle Detection Parameters
+    obstacle_detector:
+      # Height-based filtering
+      min_obstacle_height: 0.1   # Minimum height to consider as obstacle
+      max_obstacle_height: 2.0   # Maximum height to consider as obstacle
+      
+      # Ground plane detection
+      ground_plane_detection: true
+      ground_plane_distance: 0.05  # Distance threshold for ground plane
+      
+      # Clustering parameters
+      cluster_tolerance: 0.1     # Distance threshold for clustering
+      min_cluster_size: 10       # Minimum points per cluster
+      max_cluster_size: 25000    # Maximum points per cluster
+      
+      # Publishing
+      publish_markers: true
+      marker_lifetime: 0.1
+      
+    # Visual SLAM Parameters (RTAB-Map)
+    visual_slam:
+      database_path: "~/.ros/rtabmap.db"
+      frame_id: "base_link"
+      map_frame_id: "map"
+      odom_frame_id: "odom"
+      
+      # SLAM mode
+      Mem/IncrementalMemory: "true"
+      Mem/InitWMWithAllNodes: "false"
+      
+      # Loop closure
+      Kp/DetectorStrategy: "6"       # GFTT/BRIEF
+      Vis/EstimationType: "1"        # 3D->2D (PnP)
+      Vis/MaxDepth: "4.0"
+      
+      # Memory management
+      RGBD/NeighborLinkRefining: "true"
+      RGBD/ProximityBySpace: "true"
+      RGBD/AngularUpdate: "0.1"
+      RGBD/LinearUpdate: "0.1"
+      
+      # Optimization
+      Optimizer/Slam2D: "true"
+      Reg/Strategy: "1"              # Vis
+      Reg/Force3DoF: "true"
+      
+    # Sensor Fusion Weights
+    sensor_fusion_weights:
+      lidar_weight: 0.7
+      visual_odometry_weight: 0.3
+      depth_obstacles_weight: 0.8
+      
+    # Quality Thresholds
+    quality_thresholds:
+      min_visual_features: 50
+      max_depth_noise: 0.1
+      min_overlap_ratio: 0.3
