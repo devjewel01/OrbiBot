@@ -1,0 +1,88 @@
+/**:
+  ros__parameters:
+    # EKF Localization Parameters
+    ekf_localization:
+      # Update rates (Hz)
+      prediction_rate: 50.0
+      
+      # Initial state covariance
+      initial_pose_covariance: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+      
+      # Process noise covariance (position, velocity)
+      process_noise:
+        position: [0.01, 0.01, 0.01]  # x, y, theta
+        velocity: [0.1, 0.1, 0.1]     # vx, vy, vtheta
+      
+      # Measurement noise covariances
+      measurement_noise:
+        odometry: [0.1, 0.1, 0.05]    # x, y, theta from wheel odometry
+        imu: [0.01]                   # theta from IMU
+        visual: [0.2, 0.2, 0.1]       # x, y, theta from visual odometry
+      
+      # Sensor weights (0.0 to 1.0)
+      sensor_weights:
+        odometry: 0.7
+        imu: 0.8
+        visual: 0.5
+      
+      # Outlier rejection thresholds
+      outlier_thresholds:
+        odometry: 0.5    # meters/rad
+        imu: 0.2         # rad
+        visual: 1.0      # meters/rad
+      
+      # Frame IDs
+      frames:
+        odom_frame: "odom"
+        base_frame: "base_link"
+        map_frame: "map"
+      
+      # Topic names
+      topics:
+        input_odom: "/odom"
+        input_imu: "/imu/data"
+        input_visual: "/visual_odometry/pose"
+        output_odom: "/orbibot/odometry/filtered"
+        output_pose: "/orbibot/pose"
+      
+    # Sensor Fusion Parameters
+    sensor_fusion:
+      # Enable/disable sensors
+      sensors:
+        wheel_odometry: true
+        imu: true
+        visual_odometry: false  # Enable when visual odometry is implemented
+        lidar_odometry: false   # Future implementation
+      
+      # Adaptive filtering
+      adaptive_filtering:
+        enabled: true
+        adaptation_rate: 0.1
+        min_confidence: 0.1
+        max_confidence: 0.9
+      
+      # Health monitoring
+      health_monitoring:
+        enabled: true
+        timeout_threshold: 1.0  # seconds
+        variance_threshold: 1.0
+        
+    # Localization quality parameters
+    localization_quality:
+      # Confidence thresholds
+      confidence:
+        high: 0.8
+        medium: 0.5
+        low: 0.2
+      
+      # Position accuracy thresholds (meters)
+      accuracy:
+        high: 0.1
+        medium: 0.5
+        low: 1.0
+      
+      # Heading accuracy thresholds (radians)  
+      heading_accuracy:
+        high: 0.05   # ~3 degrees
+        medium: 0.17 # ~10 degrees
+        low: 0.35    # ~20 degrees
