@@ -24,7 +24,6 @@ def generate_launch_description():
 
     # Launch configuration variables
     use_sim_time = LaunchConfiguration('use_sim_time')
-    use_ros2_control = LaunchConfiguration('use_ros2_control')
 
     # Declare launch arguments
     declare_use_sim_time = DeclareLaunchArgument(
@@ -33,16 +32,9 @@ def generate_launch_description():
         description='Use sim time if true'
     )
     
-    declare_use_ros2_control = DeclareLaunchArgument(
-        'use_ros2_control',
-        default_value='true',
-        description='Use ros2_control if true'
-    )
 
     # Process the URDF file
-    robot_description = Command(['xacro ', xacro_file, 
-                               ' use_ros2_control:=', use_ros2_control,
-                               ' sim_mode:=', use_sim_time])
+    robot_description = Command(['xacro ', xacro_file])
 
     # Robot State Publisher node
     robot_state_publisher_node = Node(
@@ -54,6 +46,15 @@ def generate_launch_description():
             'robot_description': robot_description,
             'use_sim_time': use_sim_time
         }]
+    )
+
+    # Joint State Publisher node - publishes wheel joint states
+    joint_state_publisher_node = Node(
+        package='joint_state_publisher',
+        executable='joint_state_publisher',
+        name='joint_state_publisher',
+        output='screen',
+        parameters=[{'use_sim_time': use_sim_time}]
     )
 
     # RViz node run from my computer and other node run on robot raspberry pi
@@ -71,10 +72,10 @@ def generate_launch_description():
 
     # Add the declarations
     ld.add_action(declare_use_sim_time)
-    ld.add_action(declare_use_ros2_control)
 
     # Add the nodes
     ld.add_action(robot_state_publisher_node)
+    ld.add_action(joint_state_publisher_node)
     # ld.add_action(rviz_node)
 
     return ld

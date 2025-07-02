@@ -25,8 +25,6 @@ setup(
     entry_points={
         'console_scripts': [
             'control_manager = orbibot_control.control_manager:main',
-            'kinematics_test = orbibot_control.kinematics_test:main',
-            'system_test = orbibot_control.system_test:main',
         ],
     },
 )

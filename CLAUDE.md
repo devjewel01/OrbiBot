@@ -4,8 +4,8 @@ This file provides guidance to Claude Code when working with OrbiBot, a mecanum-
 
 ## Current Development Status
 
-**✅ COMPLETED**: orbibot_description
-**🔄 NEXT**: orbibot_msgs → orbibot_hardware → orbibot_control
+**✅ COMPLETED**: orbibot_description, orbibot_msgs, orbibot_hardware, orbibot_control, orbibot_webui, orbibot_teleop
+**🔄 NEXT**: orbibot_localization → orbibot_navigation (SLAM & Autonomous Navigation)
 
 ## Repository Overview
 
@@ -32,8 +32,11 @@ source install/setup.bash
 
 # Build specific packages
 colcon build --packages-select orbibot_description
-colcon build --packages-select orbibot_msgs        # When created
-colcon build --packages-select orbibot_hardware    # When created
+colcon build --packages-select orbibot_msgs
+colcon build --packages-select orbibot_hardware
+colcon build --packages-select orbibot_control
+colcon build --packages-select orbibot_webui
+colcon build --packages-select orbibot_teleop
 ```
 
 ## Current Package Status
@@ -52,89 +55,87 @@ colcon build --packages-select orbibot_hardware    # When created
 ros2 launch orbibot_description display.launch.py
 ```
 
-### 🔄 orbibot_msgs (NEXT PRIORITY)
-**Needed Messages:**
-```
-WheelSpeeds.msg:
-  float64 front_left
-  float64 front_right  
-  float64 back_left
-  float64 back_right
+### ✅ orbibot_msgs (COMPLETE)
+- **Location**: `src/orbibot_msgs/`
+- **Type**: ament_cmake package
+- **Contents**: Custom message and service definitions
+- **Key Messages**:
+  - `WheelSpeeds.msg` - Individual wheel speed commands
+  - `MotorFeedback.msg` - Encoder positions, velocities, status
+  - `SystemStatus.msg` - Battery voltage, hardware status
+  - `SafetyStatus.msg` - Safety monitoring data
+- **Key Services**:
+  - `SetMotorEnable.srv` - Enable/disable motors
+  - `CalibrateIMU.srv` - IMU calibration service
 
-MotorFeedback.msg:
-  std_msgs/Header header
-  int32[] encoder_counts
-  float64[] positions  
-  float64[] velocities
-  bool[] motor_enabled
+### ✅ orbibot_hardware (COMPLETE)
+- **Location**: `src/orbibot_hardware/`
+- **Type**: ament_python package
+- **Architecture**: Custom hardware interface (not ros2_control)
+- **Contents**: 
+  - `hardware_node.py` - Main hardware interface node
+  - `rosmaster_interface.py` - ROSMaster_Lib wrapper
+- **Features**:
+  - Direct `/cmd_vel` processing with ROSMaster mecanum kinematics
+  - Real-time encoder feedback and joint state publishing
+  - IMU attitude data (roll, pitch, yaw)
+  - Battery monitoring and safety features
+  - Command timeout protection and emergency stop
 
-SystemStatus.msg:
-  std_msgs/Header header
-  float32 battery_voltage
-  bool motors_enabled
-  bool hardware_ok
-```
+**Key Topics:**
+```bash
+# Published
+/joint_states              # Joint positions/velocities for RViz
+/orbibot/motor_feedback    # Encoder counts and motor status
+/imu/data                  # IMU orientation data
+/orbibot/system_status     # Battery voltage, motor enable status
+/orbibot/safety_status     # Safety monitoring data
 
-**Needed Services:**
-```
-SetMotorEnable.srv:
-  bool enable
-  ---
-  bool success
-  string message
-```
-
-### 📋 orbibot_hardware (PLANNED)
-**Requirements:**
-- ROSMaster_Lib integration for Yahboom board
-- Motor control (4 motors, RPM commands)
-- Encoder feedback (1320 counts/revolution)
-- IMU publishing (accelerometer, gyroscope, magnetometer)
-- Safety monitoring (battery, emergency stop, timeouts)
-
-**Key APIs to implement:**
-```python
-# ROSMaster_Lib usage
-import Rosmaster_Lib
-board = Rosmaster_Lib.Rosmaster()
-
-# Motor control
-board.set_motor(motor_id, rpm)        # motor_id: 1-4, rpm: -333 to +333
-board.set_motor_enable(True/False)    # Enable/disable all motors
-
-# Sensor reading  
-board.get_motor_encoder(motor_id)     # Get encoder count
-board.get_accelerometer_data()        # [ax, ay, az] m/s²
-board.get_gyroscope_data()           # [wx, wy, wz] rad/s
-board.get_battery_voltage()          # Battery voltage
+# Subscribed  
+/cmd_vel                   # Velocity commands (primary control)
+/orbibot/wheel_speeds      # Direct wheel speed commands
 ```
 
-### 📋 orbibot_control (PLANNED)
-**Mecanum Drive Kinematics:**
-```python
-# Physical parameters
-WHEEL_RADIUS = 0.05      # 50mm radius
-WHEEL_SEP_X = 0.18       # 180mm front-back
-WHEEL_SEP_Y = 0.30       # 300mm left-right
+### ✅ orbibot_control (COMPLETE)
+- **Location**: `src/orbibot_control/`
+- **Type**: ament_python package
+- **Architecture**: Separate control layer for high-level coordination
+- **Contents**:
+  - `control_manager.py` - Odometry calculation and system monitoring
+- **Features**:
+  - Forward kinematics for odometry calculation
+  - TF broadcasting (odom → base_link)
+  - System health monitoring and coordination
 
-# Inverse kinematics (cmd_vel → wheel speeds)
-def inverse_kinematics(vx, vy, wz):
-    wheel_base = (WHEEL_SEP_X + WHEEL_SEP_Y) / 2.0
-    front_left  = (vx - vy - wz * wheel_base) / WHEEL_RADIUS
-    front_right = (vx + vy + wz * wheel_base) / WHEEL_RADIUS
-    back_left   = (vx + vy - wz * wheel_base) / WHEEL_RADIUS
-    back_right  = (vx - vy + wz * wheel_base) / WHEEL_RADIUS
-    return [front_left, front_right, back_left, back_right]
-```
+**Note**: Inverse kinematics handled by ROSMaster hardware (`set_car_motion()`)
+
+### ✅ orbibot_webui (COMPLETE)
+- **Location**: `src/orbibot_webui/`
+- **Type**: ament_python package
+- **Contents**: Web-based monitoring interface
+- **Features**:
+  - Real-time robot status dashboard
+  - Battery and system monitoring
+  - Web-based remote monitoring
+
+### ✅ orbibot_teleop (COMPLETE)
+- **Location**: `src/orbibot_teleop/`
+- **Type**: ament_python package
+- **Contents**: Advanced keyboard teleoperation
+- **Features**:
+  - Hardware-integrated teleop with motor enable/disable
+  - Press-and-hold keyboard control
+  - SSH/remote operation compatibility
+  - Emergency stop and safety features
+  - Real-time status display and speed adjustment
 
 ## Development Workflow
 
-### Package Creation Order
-1. **orbibot_msgs** - Message definitions
-2. **orbibot_hardware** - Hardware interface  
-3. **orbibot_control** - Motion control
-4. **orbibot_localization** - Odometry and pose
-5. **orbibot_navigation** - SLAM and autonomous navigation
+### Next Development Priority
+1. **orbibot_localization** - Enhanced odometry, pose estimation, sensor fusion
+2. **orbibot_navigation** - SLAM mapping and autonomous navigation
+3. **orbibot_perception** - Object detection and environment understanding (optional)
+4. **orbibot_missions** - Task execution and mission planning (optional)
 
 ### Safety Requirements
 - Always enable/disable motors through service calls
@@ -166,13 +167,17 @@ ls -la /dev/motordriver /dev/lidar
 # Workspace
 ~/orbibot_ws/
 
-# Current packages
-~/orbibot_ws/src/orbibot_description/urdf/orbibot.urdf.xacro  # Robot definition
+# Completed packages
+~/orbibot_ws/src/orbibot_description/  # Robot URDF and visualization
+~/orbibot_ws/src/orbibot_msgs/         # Custom messages and services
+~/orbibot_ws/src/orbibot_hardware/     # Hardware interface and control
+~/orbibot_ws/src/orbibot_control/      # Odometry and system coordination
+~/orbibot_ws/src/orbibot_webui/        # Web monitoring interface
+~/orbibot_ws/src/orbibot_teleop/       # Advanced keyboard teleoperation
 
 # Future packages (to be created)
-~/orbibot_ws/src/orbibot_msgs/         # Custom messages
-~/orbibot_ws/src/orbibot_hardware/     # Hardware interface
-~/orbibot_ws/src/orbibot_control/      # Motion control
+~/orbibot_ws/src/orbibot_localization/ # Enhanced localization
+~/orbibot_ws/src/orbibot_navigation/   # SLAM and autonomous navigation
 ```
 
 ## Common Commands
@@ -182,30 +187,56 @@ ls -la /dev/motordriver /dev/lidar
 source /opt/ros/jazzy/setup.bash
 source ~/orbibot_ws/install/setup.bash
 
-# Visualization
-ros2 launch orbibot_description display.launch.py
+# System Launch Commands
+ros2 launch orbibot_description display.launch.py     # RViz visualization
+ros2 launch orbibot_description robot_state.launch.py # Robot state publisher only
+ros2 launch orbibot_hardware hardware.launch.py      # Hardware interface
+ros2 launch orbibot_control control.launch.py        # Control manager
+ros2 launch orbibot_teleop teleop.launch.py          # Advanced teleop
+ros2 launch orbibot_webui webui.launch.py           # Web monitoring
+
+# System Integration
+ros2 launch orbibot_control orbibot_system.launch.py # Complete system
 
 # Development monitoring
 ros2 topic list
 ros2 service list
 ros2 node list
 
-# Future hardware testing (when implemented)
-ros2 run orbibot_hardware hardware_test
+# Hardware testing and control
 ros2 service call /orbibot/set_motor_enable orbibot_msgs/srv/SetMotorEnable "{enable: true}"
 ros2 topic echo /orbibot/system_status
+ros2 topic echo /joint_states
+ros2 topic pub /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.1}}" --once
+
+# Teleoperation options
+ros2 run teleop_twist_keyboard teleop_twist_keyboard  # Basic teleop
+ros2 run orbibot_teleop keyboard_teleop              # Advanced OrbiBot teleop
 ```
 
 ## Next Development Steps
 
-1. **Create orbibot_msgs package** with message definitions
-2. **Implement orbibot_hardware** with ROSMaster_Lib integration
-3. **Test hardware interface** with motor control and sensor reading
-4. **Develop orbibot_control** for mecanum drive kinematics
-5. **Add safety features** and emergency handling
+### Priority 1: Enhanced Localization (orbibot_localization)
+1. **Sensor fusion** - Combine odometry, IMU, and visual odometry
+2. **Extended Kalman Filter** - Improve pose estimation accuracy
+3. **Landmark detection** - Use camera for visual localization
+4. **Loop closure** - Handle drift in long-term operation
+
+### Priority 2: Autonomous Navigation (orbibot_navigation)
+1. **SLAM implementation** - Simultaneous Localization and Mapping
+   - Consider: `slam_toolbox`, `cartographer`, or `rtabmap`
+2. **Path planning** - Global and local path planning algorithms
+3. **Obstacle avoidance** - Dynamic obstacle detection and avoidance
+4. **Navigation stack integration** - ROS 2 Nav2 stack integration
+
+### Priority 3: Enhanced Capabilities (Optional)
+1. **orbibot_perception** - Object detection, person following
+2. **orbibot_missions** - Task planning and execution
+3. **Multi-robot coordination** - Fleet management capabilities
 
 ---
 
-**Current Status**: Robot description complete, ready for hardware interface development  
-**Hardware Dependencies**: ROSMaster_Lib, proper USB permissions  
-**Safety Note**: Always test motor commands with robot elevated or in safe area
+**Current Status**: All core robot packages complete and tested  
+**Hardware Dependencies**: ROSMaster_Lib installed, proper USB permissions configured  
+**Next Focus**: Autonomous navigation and SLAM capabilities  
+**Safety Note**: Always test new autonomous features in safe, controlled environment
