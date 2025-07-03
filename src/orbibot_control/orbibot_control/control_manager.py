@@ -131,10 +131,10 @@ class OrbiBot_Control_Manager(Node):
         # Calculate robot velocities from wheel velocities (mecanum kinematics)
         fl, fr, bl, br = msg.velocities[:4]
         
-        # Forward kinematics for mecanum wheels
+        # Forward kinematics for mecanum wheels (X-pattern)
         vx = self.wheel_radius * (fl + fr + bl + br) / 4.0
-        vy = self.wheel_radius * (-fl + fr + bl - br) / 4.0  
-        wz = self.wheel_radius * (-fl + fr - bl + br) / (4.0 * self.wheel_base)
+        vy = self.wheel_radius * (-fl + fr - bl + br) / 4.0  
+        wz = self.wheel_radius * (-fl + fr + bl - br) / (4.0 * self.wheel_base)
         
         # Update odometry
         current_time = self.get_clock().now()
