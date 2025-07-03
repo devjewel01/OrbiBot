@@ -145,8 +145,9 @@ class ROSMasterInterface:
                 if self.logger and (fl_pwm != 0 or fr_pwm != 0 or bl_pwm != 0 or br_pwm != 0):
                     self.logger.debug(f"Motor PWM: FL={fl_pwm}, FR={fr_pwm}, BL={bl_pwm}, BR={br_pwm}")
                 
-                # set_motor() takes PWM values from -100 to 100
-                self.board.set_motor(fl_pwm, fr_pwm, bl_pwm, br_pwm)
+                # set_motor() takes PWM values from -100 to 100 in order: M1, M2, M3, M4
+                # Map robot wheels to board motors: FL->M1, BL->M2, FR->M3, BR->M4
+                self.board.set_motor(fl_pwm, bl_pwm, fr_pwm, br_pwm)
                 
                 return True
                 
@@ -200,7 +201,9 @@ class ROSMasterInterface:
             with self.lock:
                 # Get encoder data that is auto-reported by the board
                 m1, m2, m3, m4 = self.board.get_motor_encoder()
-                return [m1, m2, m3, m4]
+                # Map board motors to robot wheels: M1=FL, M2=BL, M3=FR, M4=BR
+                # Return as [front_left, front_right, back_left, back_right]
+                return [m1, m3, m2, m4]
                 
         except Exception as e:
             if self.logger:
@@ -222,24 +225,34 @@ class ROSMasterInterface:
     # IMU Methods
     def get_imu_data(self) -> Tuple[List[float], List[float], List[float]]:
         """
-        Get IMU sensor data - NOTE: ROSMaster library only provides attitude data
-        Raw accelerometer, gyroscope, and magnetometer data are not available
+        Get complete IMU sensor data from ROSMaster board
         
         Returns:
             Tuple of (accelerometer, gyroscope, magnetometer) data
-            accelerometer: [ax, ay, az] in m/s² (estimated/default values)
-            gyroscope: [wx, wy, wz] in rad/s (estimated/default values)
-            magnetometer: [mx, my, mz] in µT (estimated/default values)
+            accelerometer: [ax, ay, az] in m/s²
+            gyroscope: [wx, wy, wz] in rad/s  
+            magnetometer: [mx, my, mz] in µT (raw units)
         """
         if not self.is_connected():
             return ([0.0, 0.0, 9.81], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
             
-        # ROSMaster library does not provide raw IMU data, only attitude
-        # Return default/estimated values
-        if self.logger:
-            self.logger.warn("Raw IMU data not available from ROSMaster library - use get_imu_attitude() instead")
-        
-        return ([0.0, 0.0, 9.81], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
+        try:
+            with self.lock:
+                # Get raw accelerometer data (m/s²)
+                ax, ay, az = self.board.get_accelerometer_data()
+                
+                # Get raw gyroscope data (rad/s)
+                gx, gy, gz = self.board.get_gyroscope_data()
+                
+                # Get raw magnetometer data (raw units)
+                mx, my, mz = self.board.get_magnetometer_data()
+                
+                return ([ax, ay, az], [gx, gy, gz], [mx, my, mz])
+                
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Failed to read IMU data: {str(e)}")
+            return ([0.0, 0.0, 9.81], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
     
     def get_imu_attitude(self) -> Tuple[float, float, float]:
         """
@@ -261,6 +274,35 @@ class ROSMasterInterface:
             if self.logger:
                 self.logger.error(f"Failed to read IMU attitude: {str(e)}")
             return (0.0, 0.0, 0.0)
+    
+    def get_complete_imu_data(self) -> Tuple[List[float], List[float], List[float], Tuple[float, float, float]]:
+        """
+        Get complete IMU data including raw sensors and attitude
+        
+        Returns:
+            Tuple of (accelerometer, gyroscope, magnetometer, attitude)
+            accelerometer: [ax, ay, az] in m/s²
+            gyroscope: [wx, wy, wz] in rad/s
+            magnetometer: [mx, my, mz] in µT
+            attitude: (roll, pitch, yaw) in radians
+        """
+        if not self.is_connected():
+            return ([0.0, 0.0, 9.81], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], (0.0, 0.0, 0.0))
+            
+        try:
+            with self.lock:
+                # Get all IMU data in one call for efficiency
+                accel = list(self.board.get_accelerometer_data())
+                gyro = list(self.board.get_gyroscope_data())
+                mag = list(self.board.get_magnetometer_data())
+                attitude = self.board.get_imu_attitude_data(ToAngle=False)
+                
+                return (accel, gyro, mag, attitude)
+                
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Failed to read complete IMU data: {str(e)}")
+            return ([0.0, 0.0, 9.81], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], (0.0, 0.0, 0.0))
     
     # System Status Methods
     def get_battery_voltage(self) -> float:
@@ -440,9 +482,13 @@ def main():
             voltage = interface.get_battery_voltage()
             node.get_logger().info(f"Battery voltage: {voltage}V")
             
-            # Test attitude (ROSMaster library only provides attitude data)
-            roll, pitch, yaw = interface.get_imu_attitude()
-            node.get_logger().info(f"Attitude - Roll: {roll:.3f}, Pitch: {pitch:.3f}, Yaw: {yaw:.3f}")
+            # Test complete IMU data
+            accel, gyro, mag, attitude = interface.get_complete_imu_data()
+            roll, pitch, yaw = attitude
+            node.get_logger().info(f"Accelerometer: {[f'{x:.3f}' for x in accel]} m/s²")
+            node.get_logger().info(f"Gyroscope: {[f'{x:.3f}' for x in gyro]} rad/s")
+            node.get_logger().info(f"Magnetometer: {[f'{x:.1f}' for x in mag]} µT")
+            node.get_logger().info(f"Attitude - Roll: {roll:.3f}, Pitch: {pitch:.3f}, Yaw: {yaw:.3f} rad")
             
             # Test encoders before movement
             node.get_logger().info("\nTesting encoders...")
