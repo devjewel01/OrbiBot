@@ -13,16 +13,16 @@
         position: [0.01, 0.01, 0.01]  # x, y, theta
         velocity: [0.1, 0.1, 0.1]     # vx, vy, vtheta
       
-      # Measurement noise covariances
+      # Measurement noise covariances (updated for real MPU9250 IMU data)
       measurement_noise:
         odometry: [0.1, 0.1, 0.05]    # x, y, theta from wheel odometry
-        imu: [0.01]                   # theta from IMU
+        imu: [0.005]                  # theta from IMU (improved with real attitude data)
         visual: [0.2, 0.2, 0.1]       # x, y, theta from visual odometry
       
-      # Sensor weights (0.0 to 1.0)
+      # Sensor weights (0.0 to 1.0) - updated for enhanced IMU data  
       sensor_weights:
         odometry: 0.7
-        imu: 0.8
+        imu: 0.9        # Increased confidence with real IMU data
         visual: 0.5
       
       # Outlier rejection thresholds

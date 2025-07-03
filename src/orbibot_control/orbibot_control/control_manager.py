@@ -229,6 +229,24 @@ class OrbiBot_Control_Manager(Node):
             t.transform.rotation.w = math.cos(self.theta / 2.0)
             
             self.tf_broadcaster.sendTransform(t)
+            
+            # Also publish base_link -> base_footprint transform
+            # base_footprint is the ground-projected robot frame
+            footprint_tf = TransformStamped()
+            footprint_tf.header.stamp = current_time.to_msg()
+            footprint_tf.header.frame_id = self.base_frame
+            footprint_tf.child_frame_id = 'base_footprint'
+            
+            # Identity transform (base_link is already at ground level)
+            footprint_tf.transform.translation.x = 0.0
+            footprint_tf.transform.translation.y = 0.0
+            footprint_tf.transform.translation.z = 0.0
+            footprint_tf.transform.rotation.x = 0.0
+            footprint_tf.transform.rotation.y = 0.0
+            footprint_tf.transform.rotation.z = 0.0
+            footprint_tf.transform.rotation.w = 1.0
+            
+            self.tf_broadcaster.sendTransform(footprint_tf)
     
     def monitor_system(self):
         """Monitor system health"""

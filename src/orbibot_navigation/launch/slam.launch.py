@@ -48,11 +48,18 @@ def generate_launch_description():
         description='log level'
     )
     
+    launch_lidar_arg = DeclareLaunchArgument(
+        'launch_lidar',
+        default_value='true',
+        description='Whether to launch LIDAR node'
+    )
+    
     # Launch configuration
     use_sim_time = LaunchConfiguration('use_sim_time')
     slam_params_file = LaunchConfiguration('slam_params_file')
     use_respawn = LaunchConfiguration('use_respawn')
     log_level = LaunchConfiguration('log_level')
+    launch_lidar = LaunchConfiguration('launch_lidar')
     
     # SLAM Toolbox Node
     start_async_slam_toolbox_node = Node(
@@ -69,7 +76,7 @@ def generate_launch_description():
         remappings=[
             ('/scan', '/scan'),
             ('/map', '/map'),
-            ('/odom', '/orbibot/odometry/filtered')
+            ('/odom', '/odom')
         ]
     )
     
@@ -83,14 +90,31 @@ def generate_launch_description():
         condition=UnlessCondition('true')  # Disabled - SLAM toolbox handles this
     )
     
+    # LIDAR Launch
+    lidar_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([
+            PathJoinSubstitution([
+                FindPackageShare('orbibot_navigation'),
+                'launch',
+                'lidar.launch.py'
+            ])
+        ]),
+        launch_arguments={
+            'use_sim_time': use_sim_time,
+        }.items(),
+        condition=IfCondition(launch_lidar)
+    )
+    
     return LaunchDescription([
         # Launch arguments
         use_sim_time_arg,
         slam_params_file_arg,
         use_respawn_arg,
         log_level_arg,
+        launch_lidar_arg,
         
         # Nodes
         start_async_slam_toolbox_node,
         # map_to_odom_tf,  # Disabled
+        lidar_launch,
     ])

@@ -377,21 +377,51 @@ class OrbiBot_Hardware_Node(Node):
             msg.header.frame_id = 'imu_link'
             
             # Get raw accelerometer data (m/s²)
-            ax, ay, az = self.bot.get_accelerometer_data()
-            msg.linear_acceleration.x = ax
-            msg.linear_acceleration.y = ay
-            msg.linear_acceleration.z = az
+            accel_data = self.bot.get_accelerometer_data()
+            if accel_data is None or len(accel_data) != 3:
+                self.get_logger().warn("Invalid accelerometer data received")
+                return
+            
+            ax, ay, az = accel_data
+            if not all(isinstance(x, (int, float)) for x in [ax, ay, az]):
+                self.get_logger().warn("Non-numeric accelerometer data received")
+                return
+            
+            msg.linear_acceleration.x = float(ax)
+            msg.linear_acceleration.y = float(ay)
+            msg.linear_acceleration.z = float(az)
             
             # Get raw gyroscope data (rad/s)
-            gx, gy, gz = self.bot.get_gyroscope_data()
-            msg.angular_velocity.x = gx
-            msg.angular_velocity.y = gy
-            msg.angular_velocity.z = gz
+            gyro_data = self.bot.get_gyroscope_data()
+            if gyro_data is None or len(gyro_data) != 3:
+                self.get_logger().warn("Invalid gyroscope data received")
+                return
+            
+            gx, gy, gz = gyro_data
+            if not all(isinstance(x, (int, float)) for x in [gx, gy, gz]):
+                self.get_logger().warn("Non-numeric gyroscope data received")
+                return
+            
+            msg.angular_velocity.x = float(gx)
+            msg.angular_velocity.y = float(gy)
+            msg.angular_velocity.z = float(gz)
             
             # Get attitude data for orientation quaternion
-            roll, pitch, yaw = self.bot.get_imu_attitude_data(ToAngle=False)
+            attitude_data = self.bot.get_imu_attitude_data(ToAngle=False)
+            if attitude_data is None or len(attitude_data) != 3:
+                self.get_logger().warn("Invalid IMU attitude data received")
+                return
+            
+            roll, pitch, yaw = attitude_data
+            
+            # Validate attitude data
+            if not all(isinstance(x, (int, float)) for x in [roll, pitch, yaw]):
+                self.get_logger().warn("Non-numeric attitude data received")
+                return
             
             # Convert Euler angles to quaternion
+            roll, pitch, yaw = float(roll), float(pitch), float(yaw)
+            
             cy = np.cos(yaw * 0.5)
             sy = np.sin(yaw * 0.5)
             cp = np.cos(pitch * 0.5)
@@ -399,10 +429,10 @@ class OrbiBot_Hardware_Node(Node):
             cr = np.cos(roll * 0.5)
             sr = np.sin(roll * 0.5)
             
-            msg.orientation.w = cr * cp * cy + sr * sp * sy
-            msg.orientation.x = sr * cp * cy - cr * sp * sy
-            msg.orientation.y = cr * sp * cy + sr * cp * sy
-            msg.orientation.z = cr * cp * sy - sr * sp * cy
+            msg.orientation.w = float(cr * cp * cy + sr * sp * sy)
+            msg.orientation.x = float(sr * cp * cy - cr * sp * sy)
+            msg.orientation.y = float(cr * sp * cy + sr * cp * sy)
+            msg.orientation.z = float(cr * cp * sy - sr * sp * cy)
             
             # Set covariance matrices (estimated values for MPU9250)
             # Accelerometer covariance (based on ±2g range)
