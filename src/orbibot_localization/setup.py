@@ -24,7 +24,6 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'ekf_localization = orbibot_localization.ekf_localization:main',
             'sensor_fusion = orbibot_localization.sensor_fusion:main',
         ],
     },

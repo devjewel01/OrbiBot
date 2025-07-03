@@ -62,7 +62,7 @@ class OrbiBot_Control_Manager(Node):
             SafetyStatus, 'orbibot/safety_status',
             self.safety_status_callback, best_effort_qos)
         
-        # Publishers
+        # Publishers - Control node is sole odometry publisher
         self.odom_pub = self.create_publisher(Odometry, 'odom', 10)
         
         # Service clients
@@ -124,17 +124,20 @@ class OrbiBot_Control_Manager(Node):
                              f"Wheelbase: {self.wheel_base:.3f}m")
     
     def motor_feedback_callback(self, msg: MotorFeedback):
-        """Process motor feedback for odometry calculation"""
+        """Process motor feedback for odometry calculation (sole odometry source)"""
         if len(msg.velocities) < 4:
             return
         
         # Calculate robot velocities from wheel velocities (mecanum kinematics)
+        # This is the ONLY odometry calculation - hardware node provides raw data only
         fl, fr, bl, br = msg.velocities[:4]
         
         # Forward kinematics for mecanum wheels (X-pattern)
+        # These equations are the standard for an 'X' configuration mecanum drive
+        # in a ROS-compliant coordinate system (+X Forward, +Y Left).
         vx = self.wheel_radius * (fl + fr + bl + br) / 4.0
-        vy = self.wheel_radius * (-fl + fr - bl + br) / 4.0  
-        wz = self.wheel_radius * (-fl + fr + bl - br) / (4.0 * self.wheel_base)
+        vy = self.wheel_radius * (-fl + fr + bl - br) / 4.0
+        wz = self.wheel_radius * (-fl + fr - bl + br) / (4.0 * self.wheel_base)
         
         # Update odometry
         current_time = self.get_clock().now()

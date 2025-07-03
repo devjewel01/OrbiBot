@@ -289,7 +289,7 @@ class OrbiBot_Hardware_Node(Node):
         self.publish_joint_states()
     
     def update_encoders(self):
-        """Update encoder positions and velocities"""
+        """Update encoder counts (raw data only)"""
         if not self.hardware_connected:
             return
         
@@ -301,20 +301,19 @@ class OrbiBot_Hardware_Node(Node):
             # Apply software offsets
             current_counts = [raw_counts[i] - self.encoder_offsets[i] for i in range(4)]
             
-            # Calculate position and velocity
+            # Calculate velocity for feedback only (control node handles odometry)
             dt = current_time - self.last_encoder_time
             
             if dt > 0:
                 for i in range(4):
-                    # Calculate position change
+                    # Calculate velocity for motor feedback
                     count_diff = current_counts[i] - self.last_encoder_counts[i]
+                    velocity_rad_per_sec = (count_diff / self.encoder_cpr) * 2.0 * np.pi / dt
+                    self.encoder_velocities[i] = velocity_rad_per_sec
                     
-                    # Convert to radians
+                    # Update wheel positions for visualization only
                     position_diff = (count_diff / self.encoder_cpr) * 2.0 * np.pi
                     self.encoder_positions[i] += position_diff
-                    
-                    # Calculate velocity
-                    self.encoder_velocities[i] = position_diff / dt
             
             # Update stored values
             self.last_encoder_counts = current_counts
@@ -341,7 +340,7 @@ class OrbiBot_Hardware_Node(Node):
         self.motor_feedback_pub.publish(msg)
     
     def publish_joint_states(self):
-        """Publish joint states for visualization"""
+        """Publish joint states for visualization only (not odometry)"""
         if not self.hardware_connected:
             return
         
@@ -356,6 +355,7 @@ class OrbiBot_Hardware_Node(Node):
             'wheel_rear_right_joint'
         ]
         
+        # Only for wheel visualization in RViz - odometry calculated in control node
         msg.position = self.encoder_positions
         msg.velocity = self.encoder_velocities
         msg.effort = []

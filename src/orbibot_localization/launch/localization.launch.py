@@ -50,22 +50,6 @@ def generate_launch_description():
     enable_lidar = LaunchConfiguration('enable_lidar')
     log_level = LaunchConfiguration('log_level')
     
-    # EKF Localization Node
-    ekf_localization_node = Node(
-        package='orbibot_localization',
-        executable='ekf_localization',
-        name='ekf_localization',
-        output='screen',
-        parameters=[
-            config_file,
-            {'use_sim_time': use_sim_time}
-        ],
-        arguments=['--ros-args', '--log-level', log_level],
-        remappings=[
-            ('/odom', '/odom'),
-            ('/imu/data', '/imu/data'),
-        ]
-    )
     
     # Sensor Fusion Node
     sensor_fusion_node = Node(
@@ -82,7 +66,7 @@ def generate_launch_description():
             }
         ],
         arguments=['--ros-args', '--log-level', log_level],
-        condition=IfCondition('false')  # Disable for now, will enable when implemented
+        condition=IfCondition('false')  # Disable sensor fusion - using robot_localization instead
     )
     
     # Robot Localization (EKF) from robot_localization package
@@ -167,9 +151,9 @@ def generate_launch_description():
                                           0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  1e-9, 0.0,
                                           0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  1e-9]
         }],
-        condition=IfCondition('false'),  # Disabled by default, use custom EKF
+        condition=IfCondition('true'),  # Enable robot_localization EKF
         remappings=[
-            ('/odometry/filtered', '/robot_localization/odometry/filtered')
+            ('/odometry/filtered', '/odometry/filtered')
         ]
     )
     
@@ -181,7 +165,6 @@ def generate_launch_description():
         log_level_arg,
         
         # Nodes
-        ekf_localization_node,
         # sensor_fusion_node,  # Disabled for now
-        # robot_localization_ekf,  # Alternative EKF (disabled by default)
+        robot_localization_ekf,  # Using standard robot_localization EKF
     ])
