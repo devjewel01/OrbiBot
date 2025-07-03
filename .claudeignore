@@ -1,0 +1,90 @@
+# ROS 2 Build Outputs
+build/
+install/
+log/
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+
+# IDE Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary Files
+*.tmp
+*.temp
+.tmp/
+.temp/
+
+# Log Files
+*.log
+*.out
+
+# ROS Specific
+*.bag
+*.db3
+*.mcap
+
+# 3D Model Files (keep essential ones in description)
+*.dae
+*.blend
+*.fbx
+*.obj
+*.3ds
+*.max
+
+# Documentation Build
+_build/
+.doctrees/
+
+# Large Media Files
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.wmv
+*.flv
+*.webm
+*.mp3
+*.wav
+*.ogg
+*.flac
+
+# Archive Files
+*.zip
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.rar
+*.7z
+
+# Backup Files
+*.bak
+*.backup
+*~
+
+# Node.js (if any web components)
+node_modules/
+package-lock.json
+yarn.lock
+
+# Git
+.git/
+*.orig
+*.rej
