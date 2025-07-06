@@ -24,6 +24,8 @@ setup(
     entry_points={
         'console_scripts': [
             'keyboard_teleop = orbibot_teleop.keyboard_teleop:main',
+            'ps_controller_teleop = orbibot_teleop.ps_controller_teleop:main',
+            'simple_controller_teleop = orbibot_teleop.simple_controller_teleop:main',
         ],
     },
 )
