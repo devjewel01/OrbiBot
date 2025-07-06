@@ -17,7 +17,7 @@
   <xacro:property name="base_mass" value="6.0"/>
   
   <!-- Sensor positions -->
-  <xacro:property name="lidar_height" value="0.0"/>
+  <xacro:property name="lidar_height" value="0.06"/>
   <xacro:property name="camera_height" value="0.02"/>
 
   <!-- Inertia macros -->

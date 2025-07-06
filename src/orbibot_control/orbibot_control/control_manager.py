@@ -73,7 +73,7 @@ class OrbiBot_Control_Manager(Node):
         self.tf_broadcaster = TransformBroadcaster(self)
         
         # Timers
-        self.odom_timer = self.create_timer(0.02, self.publish_odometry)  # 50Hz
+        self.odom_timer = self.create_timer(0.05, self.publish_odometry)  # 20Hz
         self.status_timer = self.create_timer(0.1, self.monitor_system)   # 10Hz
         
         # Wait for services

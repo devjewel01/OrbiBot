@@ -45,7 +45,7 @@ def generate_launch_description():
             'frame_id': frame_id,
             'inverted': False,
             'angle_compensate': True,
-            'scan_frequency': 10.0,
+            'scan_frequency': 5.0,
             'use_sim_time': use_sim_time
         }],
         output='screen'
