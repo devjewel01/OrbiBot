@@ -32,7 +32,7 @@ def generate_launch_description():
     
     hardware_arg = DeclareLaunchArgument(
         'hardware',
-        default_value='true',
+        default_value='True',
         description='Launch hardware nodes (robot_state_publisher, hardware, control)'
     )
     
@@ -45,7 +45,7 @@ def generate_launch_description():
     
     rviz_arg = DeclareLaunchArgument(
         'rviz',
-        default_value='true',
+        default_value='True',
         description='Launch RViz visualization'
     )
     

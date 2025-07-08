@@ -86,9 +86,9 @@ def generate_launch_description():
             'use_sim_time': use_sim_time,
             'params_file': nav2_params_file,
             'map': map_file,
-            'autostart': 'true',
-            'use_composition': 'true',
-            'use_respawn': 'false',
+            'autostart': 'True',
+            'use_composition': 'True',
+            'use_respawn': 'False',
         }.items(),
         condition=IfCondition(EqualsSubstitution(mode, 'localization'))
     )
@@ -105,9 +105,9 @@ def generate_launch_description():
         launch_arguments={
             'use_sim_time': use_sim_time,
             'params_file': nav2_params_file,
-            'autostart': 'true',
-            'use_composition': 'true',
-            'use_respawn': 'false',
+            'autostart': 'True',
+            'use_composition': 'True',
+            'use_respawn': 'False',
         }.items(),
         condition=IfCondition(EqualsSubstitution(mode, 'slam'))
     )
@@ -125,7 +125,7 @@ def generate_launch_description():
             'use_sim_time': use_sim_time,
             'slam_params_file': slam_params_file,
             'log_level': log_level,
-            'navigation': 'false',
+            'navigation': 'False',
         }.items(),
         condition=IfCondition(EqualsSubstitution(mode, 'mapping_only'))
     )
