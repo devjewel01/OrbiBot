@@ -242,3 +242,31 @@ ros2 run tf2_tools view_frames
 - Enhanced sensor fusion
 - Advanced behavior trees
 - Mission planning integration
+
+
+
+For SLAM + Autonomous Navigation:
+
+  # Robot: Start SLAM with autonomous navigation
+  ros2 launch orbibot_navigation
+  autonomous_navigation.launch.py
+
+  # Computer: Monitor with RViz
+  ros2 launch nav2_bringup rviz_launch.py
+  rviz_config:=/home/orbitax/orbibot_ws/src/orbibot_navigat
+  ion/config/orbibot_slam.rviz
+
+  For Map-based Autonomous Navigation:
+
+  # Robot: Start with existing map
+  ros2 launch orbibot_navigation
+  autonomous_navigation.launch.py
+  map:=~/orbibot_ws/maps/your_map.yaml
+
+  # Computer: Monitor with RViz
+  ros2 launch nav2_bringup rviz_launch.py
+
+  Standalone Autonomous Navigation:
+
+  # After navigation stack is running
+  ros2 run orbibot_navigation autonomous_navigation.py

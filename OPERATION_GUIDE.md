@@ -460,3 +460,10 @@ ros2 topic echo /orbibot/system_status --once
 **🎯 Your OrbiBot is now ready for autonomous operation! Follow this guide to safely operate your robot in autonomous mode.**
 
 **⚠️ Safety First: Always supervise autonomous operation and ensure clear paths before sending navigation commands.**
+
+
+on robot:
+ros2 launch orbibot_navigation orbibot_navigation slam:=true rviz:=false 
+
+on computer: 
+ros2 launch nav2_bringup rviz_launch 
