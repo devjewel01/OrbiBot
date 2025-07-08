@@ -252,9 +252,7 @@ For SLAM + Autonomous Navigation:
   autonomous_navigation.launch.py
 
   # Computer: Monitor with RViz
-  ros2 launch nav2_bringup rviz_launch.py
-  rviz_config:=/home/orbitax/orbibot_ws/src/orbibot_navigat
-  ion/config/orbibot_slam.rviz
+  ros2 launch nav2_bringup rviz_launch.py rviz_config:=/home/orbitax/orbibot_ws/src/orbibot_navigation/config/orbibot_slam.rviz
 
   For Map-based Autonomous Navigation:
 
@@ -270,3 +268,23 @@ For SLAM + Autonomous Navigation:
 
   # After navigation stack is running
   ros2 run orbibot_navigation autonomous_navigation.py
+
+
+
+
+
+
+  # Robot: Start SLAM with autonomous navigation
+  ros2 launch orbibot_navigation orbibot_navigation.launch.py
+  mode:=slam rviz:=false
+
+  Then activate SLAM again:
+  ros2 service call /slam_toolbox/change_state
+  lifecycle_msgs/srv/ChangeState "{transition: {id: 1}}"
+  ros2 service call /slam_toolbox/change_state
+  lifecycle_msgs/srv/ChangeState "{transition: {id: 3}}"
+
+
+
+  # Computer: Monitor with RViz
+  ros2 launch nav2_bringup rviz_launch.py rviz_config:=/home/orbitax/orbibot_ws/src/orbibot_navigation/config/orbibot_slam.rviz

@@ -84,10 +84,10 @@ def generate_launch_description():
         ]),
         launch_arguments={
             'use_sim_time': use_sim_time,
-            'params_file': nav2_params_file,
+            'params_file': '/opt/ros/jazzy/share/nav2_bringup/params/nav2_params.yaml',
             'map': map_file,
-            'autostart': 'True',
-            'use_composition': 'True',
+            'autostart': 'true',
+            'use_composition': 'False',
             'use_respawn': 'False',
         }.items(),
         condition=IfCondition(EqualsSubstitution(mode, 'localization'))
@@ -104,9 +104,9 @@ def generate_launch_description():
         ]),
         launch_arguments={
             'use_sim_time': use_sim_time,
-            'params_file': nav2_params_file,
-            'autostart': 'True',
-            'use_composition': 'True',
+            'params_file': '/opt/ros/jazzy/share/nav2_bringup/params/nav2_params.yaml',
+            'autostart': 'true',
+            'use_composition': 'False',
             'use_respawn': 'False',
         }.items(),
         condition=IfCondition(EqualsSubstitution(mode, 'slam'))

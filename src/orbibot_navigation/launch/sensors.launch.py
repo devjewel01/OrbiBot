@@ -49,7 +49,7 @@ def generate_launch_description():
         parameters=[{
             'serial_port': '/dev/lidar',
             'serial_baudrate': 115200,
-            'frame_id': 'laser_frame',
+            'frame_id': 'lidar_link',
             'inverted': False,
             'angle_compensate': True,
             'use_sim_time': use_sim_time,
