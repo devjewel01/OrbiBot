@@ -1,153 +1,188 @@
 #!/usr/bin/env python3
 """
-Complete OrbiBot Navigation System Launch
-Main entry point for all navigation modes
+OrbiBot Navigation Launch - Refactored and Cleaned Up
+Main navigation launch file supporting multiple modes: SLAM, localization, mapping only
+Author: Claude Code Assistant
+Updated: 2025-07-08
 """
+
 import os
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, GroupAction
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, EqualsSubstitution
+from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 from ament_index_python.packages import get_package_share_directory
 
 
 def generate_launch_description():
-    """Generate complete OrbiBot navigation launch description"""
+    """Generate the complete navigation launch description"""
+    
+    # Package directories
+    nav_pkg_dir = get_package_share_directory('orbibot_navigation')
+    nav2_bringup_dir = get_package_share_directory('nav2_bringup')
     
     # Launch arguments
-    mode_arg = DeclareLaunchArgument(
+    declare_mode_arg = DeclareLaunchArgument(
         'mode',
         default_value='slam',
         description='Navigation mode: slam, localization, or mapping_only',
         choices=['slam', 'localization', 'mapping_only']
     )
     
-    use_sim_time_arg = DeclareLaunchArgument(
+    declare_use_sim_time_arg = DeclareLaunchArgument(
         'use_sim_time',
         default_value='false',
-        description='Use simulation time'
+        description='Use simulation time if true'
     )
     
-    hardware_arg = DeclareLaunchArgument(
-        'hardware',
-        default_value='True',
-        description='Launch hardware nodes (robot_state_publisher, hardware, control)'
+    declare_params_file_arg = DeclareLaunchArgument(
+        'params_file',
+        default_value=os.path.join(nav_pkg_dir, 'config', 'orbibot_nav2_params.yaml'),
+        description='Full path to the ROS2 parameters file'
     )
     
-    sensors_arg = DeclareLaunchArgument(
-        'sensors',
-        default_value='lidar',
-        description='Sensor configuration: lidar, realsense, or both',
-        choices=['lidar', 'realsense', 'both']
-    )
-    
-    rviz_arg = DeclareLaunchArgument(
-        'rviz',
-        default_value='True',
-        description='Launch RViz visualization'
-    )
-    
-    map_file_arg = DeclareLaunchArgument(
+    declare_map_file_arg = DeclareLaunchArgument(
         'map_file',
-        default_value='',
-        description='Path to map file for localization mode'
+        default_value=os.path.join(nav_pkg_dir, 'maps', 'map.yaml'),
+        description='Full path to map file for localization mode'
     )
     
-    log_level_arg = DeclareLaunchArgument(
-        'log_level',
-        default_value='info',
-        description='Log level for all nodes'
+    declare_slam_params_file_arg = DeclareLaunchArgument(
+        'slam_params_file',
+        default_value=os.path.join(nav_pkg_dir, 'config', 'orbibot_slam_params.yaml'),
+        description='Full path to SLAM parameters file'
     )
     
-    # Launch configuration
+    declare_rviz_arg = DeclareLaunchArgument(
+        'rviz',
+        default_value='false',
+        description='Launch RViz if true'
+    )
+    
+    declare_rviz_config_arg = DeclareLaunchArgument(
+        'rviz_config',
+        default_value=os.path.join(nav_pkg_dir, 'config', 'orbibot_slam.rviz'),
+        description='Full path to RViz config file'
+    )
+    
+    # Launch configuration variables
     mode = LaunchConfiguration('mode')
     use_sim_time = LaunchConfiguration('use_sim_time')
-    hardware = LaunchConfiguration('hardware')
-    sensors = LaunchConfiguration('sensors')
-    rviz = LaunchConfiguration('rviz')
+    params_file = LaunchConfiguration('params_file')
     map_file = LaunchConfiguration('map_file')
-    log_level = LaunchConfiguration('log_level')
+    slam_params_file = LaunchConfiguration('slam_params_file')
+    rviz = LaunchConfiguration('rviz')
+    rviz_config = LaunchConfiguration('rviz_config')
     
-    # Hardware System Launch
-    hardware_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([
-            PathJoinSubstitution([
-                FindPackageShare('orbibot_navigation'),
-                'launch',
-                'hardware.launch.py'
-            ])
-        ]),
-        launch_arguments={
-            'use_sim_time': use_sim_time,
-            'log_level': log_level,
-        }.items(),
-        condition=IfCondition(hardware)
+    # SLAM Mode Group
+    slam_group = GroupAction([
+        # SLAM Toolbox
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([
+                PathJoinSubstitution([
+                    FindPackageShare('orbibot_navigation'),
+                    'launch',
+                    'slam.launch.py'
+                ])
+            ]),
+            launch_arguments={
+                'use_sim_time': use_sim_time,
+                'slam_params_file': slam_params_file,
+            }.items()
+        ),
+        
+        # Navigation Stack
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([
+                PathJoinSubstitution([
+                    FindPackageShare('nav2_bringup'),
+                    'launch',
+                    'navigation_launch.py'
+                ])
+            ]),
+            launch_arguments={
+                'use_sim_time': use_sim_time,
+                'params_file': params_file,
+                'autostart': 'true',
+                'use_composition': 'False',
+                'use_respawn': 'False',
+            }.items()
+        ),
+    ],
+    condition=IfCondition(EqualsSubstitution(mode, 'slam'))
     )
     
-    # Sensor Launch
-    sensors_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([
-            PathJoinSubstitution([
-                FindPackageShare('orbibot_navigation'),
-                'launch',
-                'sensors.launch.py'
-            ])
-        ]),
-        launch_arguments={
-            'sensors': sensors,
-            'use_sim_time': use_sim_time,
-            'log_level': log_level,
-        }.items()
+    # Localization Mode Group (with pre-built map)
+    localization_group = GroupAction([
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([
+                PathJoinSubstitution([
+                    FindPackageShare('nav2_bringup'),
+                    'launch',
+                    'bringup_launch.py'
+                ])
+            ]),
+            launch_arguments={
+                'use_sim_time': use_sim_time,
+                'params_file': params_file,
+                'map': map_file,
+                'autostart': 'true',
+                'use_composition': 'False',
+                'use_respawn': 'False',
+            }.items()
+        ),
+    ],
+    condition=IfCondition(EqualsSubstitution(mode, 'localization'))
     )
     
-    # Navigation Launch (mode-specific)
-    navigation_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([
-            PathJoinSubstitution([
-                FindPackageShare('orbibot_navigation'),
-                'launch',
-                'navigation.launch.py'
-            ])
-        ]),
-        launch_arguments={
-            'mode': mode,
-            'use_sim_time': use_sim_time,
-            'map_file': map_file,
-            'log_level': log_level,
-        }.items()
+    # Mapping Only Mode Group (SLAM without navigation)
+    mapping_only_group = GroupAction([
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([
+                PathJoinSubstitution([
+                    FindPackageShare('orbibot_navigation'),
+                    'launch',
+                    'slam.launch.py'
+                ])
+            ]),
+            launch_arguments={
+                'use_sim_time': use_sim_time,
+                'slam_params_file': slam_params_file,
+            }.items()
+        ),
+    ],
+    condition=IfCondition(EqualsSubstitution(mode, 'mapping_only'))
     )
     
-    # RViz Launch
-    rviz_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([
-            PathJoinSubstitution([
-                FindPackageShare('orbibot_navigation'),
-                'launch',
-                'rviz.launch.py'
-            ])
-        ]),
-        launch_arguments={
-            'mode': mode,
-            'use_sim_time': use_sim_time,
-        }.items(),
+    # RViz Node
+    rviz_node = Node(
+        package='rviz2',
+        executable='rviz2',
+        name='rviz2',
+        arguments=['-d', rviz_config],
+        parameters=[{'use_sim_time': use_sim_time}],
+        output='screen',
         condition=IfCondition(rviz)
     )
     
     return LaunchDescription([
         # Launch arguments
-        mode_arg,
-        use_sim_time_arg,
-        hardware_arg,
-        sensors_arg,
-        rviz_arg,
-        map_file_arg,
-        log_level_arg,
+        declare_mode_arg,
+        declare_use_sim_time_arg,
+        declare_params_file_arg,
+        declare_map_file_arg,
+        declare_slam_params_file_arg,
+        declare_rviz_arg,
+        declare_rviz_config_arg,
         
-        # Launch files
-        hardware_launch,
-        sensors_launch,
-        navigation_launch,
-        rviz_launch,
+        # Launch groups
+        slam_group,
+        localization_group,
+        mapping_only_group,
+        
+        # Optional RViz
+        rviz_node,
     ])

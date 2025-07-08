@@ -275,14 +275,11 @@ For SLAM + Autonomous Navigation:
 
 
   # Robot: Start SLAM with autonomous navigation
-  ros2 launch orbibot_navigation orbibot_navigation.launch.py
-  mode:=slam rviz:=false
+  ros2 launch orbibot_navigation orbibot_navigation.launch.pymode:=slam rviz:=false
 
   Then activate SLAM again:
-  ros2 service call /slam_toolbox/change_state
-  lifecycle_msgs/srv/ChangeState "{transition: {id: 1}}"
-  ros2 service call /slam_toolbox/change_state
-  lifecycle_msgs/srv/ChangeState "{transition: {id: 3}}"
+  ros2 service call /slam_toolbox/change_state lifecycle_msgs/srv/ChangeState "{transition: {id: 1}}"
+  ros2 service call /slam_toolbox/change_state lifecycle_msgs/srv/ChangeState "{transition: {id: 3}}"
 
 
 
