@@ -1,10 +1,52 @@
 # OrbiBot Navigation Package
 
-This package provides autonomous navigation capabilities for OrbiBot.
+Complete autonomous navigation system for OrbiBot mecanum-wheeled mobile robot.
+
+## Architecture Overview
+
+This package provides a clean, hierarchical launch system for OrbiBot navigation with three main modes:
+
+### Navigation Modes
+
+1. **SLAM Mode** (`mode:=slam`) - Simultaneous Localization and Mapping
+   - Creates maps while navigating
+   - Combines SLAM toolbox with Nav2 navigation stack
+   - Default mode for exploration and mapping
+
+2. **Localization Mode** (`mode:=localization`) - Map-based Navigation
+   - Uses pre-built maps for localization with AMCL
+   - Full Nav2 stack with autonomous navigation
+   - Requires existing map file
+
+3. **Mapping Only Mode** (`mode:=mapping_only`) - Pure Mapping
+   - SLAM mapping without navigation planning
+   - Useful for teleoperated mapping sessions
+
+## Launch File Structure
+
+### Main Launch File
+- `orbibot_navigation.launch.py` - **Primary entry point** for all navigation modes
+
+### Modular Launch Files
+- `hardware.launch.py` - Robot hardware system (description, hardware, control)
+- `sensors.launch.py` - Sensor configuration (LIDAR, RealSense, or both)
+- `navigation.launch.py` - Mode-specific navigation launching
+- `slam.launch.py` - SLAM toolbox configuration
+- `rviz.launch.py` - Mode-specific RViz visualization
+
+## Configuration Files
+
+### Optimized Parameters
+- `orbibot_nav2_params.yaml` - Nav2 stack parameters optimized for OrbiBot
+- `orbibot_slam_params.yaml` - SLAM toolbox parameters for OrbiBot
+
+### Legacy Files (Deprecated)
+- `nav2_params.yaml` - Original Nav2 parameters (kept for compatibility)
+- `slam_params.yaml` - Original SLAM parameters (kept for compatibility)
 
 ## Prerequisites
 
-Before using this package, you need to install the Nav2 navigation stack and SLAM Toolbox:
+Before using this package, install the required Nav2 and SLAM dependencies:
 
 ```bash
 # Install Nav2 stack
@@ -18,117 +60,185 @@ sudo apt install -y ros-jazzy-slam-toolbox
 sudo apt install -y ros-jazzy-robot-localization ros-jazzy-dwb-*
 ```
 
-## Package Structure
+## Usage Examples
 
-```
-orbibot_navigation/
-├── config/
-│   ├── slam_params.yaml      # SLAM Toolbox configuration
-│   └── nav2_params.yaml      # Nav2 stack parameters
-├── launch/
-│   ├── slam.launch.py        # SLAM mapping
-│   ├── navigation.launch.py  # Nav2 navigation
-│   ├── orbibot_navigation.launch.py  # Complete system
-│   └── basic_navigation.launch.py    # Basic setup
-├── maps/                     # Saved maps
-└── params/                   # Additional parameters
-```
-
-## Usage
-
-### 1. SLAM Mapping
-
-Create a map of your environment:
-
+### Basic SLAM Navigation
 ```bash
-# Launch the complete system with SLAM
-ros2 launch orbibot_navigation orbibot_navigation.launch.py slam:=true
+# Complete system with SLAM
+ros2 launch orbibot_navigation orbibot_navigation.launch.py
 
-# Or just SLAM
-ros2 launch orbibot_navigation slam.launch.py
+# SLAM with RViz
+ros2 launch orbibot_navigation orbibot_navigation.launch.py rviz:=true
 
-# Drive the robot around to build the map
-ros2 run teleop_twist_keyboard teleop_twist_keyboard
-
-# Save the map when done
-ros2 run nav2_map_server map_saver_cli -f ~/my_map
+# SLAM without hardware (simulation)
+ros2 launch orbibot_navigation orbibot_navigation.launch.py hardware:=false
 ```
 
-### 2. Autonomous Navigation
-
-Navigate autonomously using a pre-built map:
-
+### Localization-based Navigation
 ```bash
-# Launch with saved map
-ros2 launch orbibot_navigation orbibot_navigation.launch.py slam:=false navigation:=true
+# Navigate with existing map
+ros2 launch orbibot_navigation orbibot_navigation.launch.py mode:=localization map_file:=/path/to/map.yaml
 
-# Set navigation goal via RViz 2D Nav Goal tool
-# Or programmatically:
-ros2 topic pub /goal_pose geometry_msgs/PoseStamped "{
-  header: {frame_id: 'map'},
-  pose: {
-    position: {x: 2.0, y: 1.0, z: 0.0},
-    orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}
-  }
-}"
+# Localization with RViz
+ros2 launch orbibot_navigation orbibot_navigation.launch.py mode:=localization rviz:=true
 ```
 
-### 3. Complete System Launch
-
-Launch everything at once:
-
+### Mapping Only (Teleoperated)
 ```bash
-# SLAM mode (mapping)
-ros2 launch orbibot_navigation orbibot_navigation.launch.py slam:=true navigation:=true hardware:=true
+# Pure mapping without navigation
+ros2 launch orbibot_navigation orbibot_navigation.launch.py mode:=mapping_only
 
-# Navigation mode (with pre-built map)
-ros2 launch orbibot_navigation orbibot_navigation.launch.py slam:=false navigation:=true hardware:=true
+# Combined with teleop
+ros2 launch orbibot_navigation orbibot_navigation.launch.py mode:=mapping_only &
+ros2 run orbibot_teleop keyboard_teleop
+```
+
+### Sensor Configurations
+```bash
+# LIDAR only (default)
+ros2 launch orbibot_navigation orbibot_navigation.launch.py sensors:=lidar
+
+# RealSense camera only
+ros2 launch orbibot_navigation orbibot_navigation.launch.py sensors:=realsense
+
+# Both LIDAR and RealSense
+ros2 launch orbibot_navigation orbibot_navigation.launch.py sensors:=both
+```
+
+## Launch Arguments
+
+### Main Launch Arguments
+- `mode` - Navigation mode: `slam`, `localization`, `mapping_only` (default: `slam`)
+- `use_sim_time` - Use simulation time (default: `false`)
+- `hardware` - Launch hardware nodes (default: `true`)
+- `sensors` - Sensor configuration: `lidar`, `realsense`, `both` (default: `lidar`)
+- `rviz` - Launch RViz visualization (default: `true`)
+- `map_file` - Map file path for localization mode (default: `''`)
+- `log_level` - Log level for all nodes (default: `info`)
+
+### Common Combinations
+```bash
+# Development with simulation
+ros2 launch orbibot_navigation orbibot_navigation.launch.py hardware:=false use_sim_time:=true
+
+# Production mapping
+ros2 launch orbibot_navigation orbibot_navigation.launch.py mode:=slam sensors:=both
+
+# Autonomous navigation
+ros2 launch orbibot_navigation orbibot_navigation.launch.py mode:=localization map_file:=maps/office.yaml
 ```
 
 ## Key Features
 
-- **SLAM Toolbox Integration**: Real-time mapping with loop closure
-- **Nav2 Stack**: Complete autonomous navigation
-- **Mecanum Drive Support**: Optimized for holonomic movement
-- **Sensor Fusion**: Uses enhanced localization from orbibot_localization
-- **Safety Features**: Obstacle avoidance and recovery behaviors
+### Optimized for OrbiBot
+- Mecanum wheel kinematics support
+- Appropriate velocity and acceleration limits
+- Optimized costmap parameters for robot size
+- LIDAR and RealSense sensor integration
+
+### Modular Design
+- Clear separation of concerns
+- Easy to extend and modify
+- Consistent parameter passing
+- Conditional launching based on mode
+
+### Production Ready
+- Comprehensive error handling
+- Configurable logging levels
+- Respawn and timeout handling
+- Performance optimizations
+
+## Dependencies
+
+### Required ROS 2 Packages
+- `nav2_bringup` - Nav2 navigation stack
+- `slam_toolbox` - SLAM implementation
+- `rplidar_ros` - LIDAR driver
+- `realsense2_camera` - RealSense camera driver (optional)
+- `depthimage_to_laserscan` - Depth to laser scan converter
+
+### OrbiBot Packages
+- `orbibot_description` - Robot URDF and transforms
+- `orbibot_hardware` - Hardware interface
+- `orbibot_control` - Control system and odometry
+- `orbibot_teleop` - Teleoperation (for mapping mode)
+
+## Migration from Old Launch Files
+
+### Old vs New Launch Files
+| Old File | New Equivalent | Notes |
+|----------|---------------|-------|
+| `basic_navigation.launch.py` | `orbibot_navigation.launch.py` | Use default parameters |
+| `navigation_basic.launch.py` | `orbibot_navigation.launch.py` | Removed redundancy |
+| `navigation_simple.launch.py` | `orbibot_navigation.launch.py` | Simplified interface |
+| `realsense_navigation.launch.py` | `orbibot_navigation.launch.py sensors:=realsense` | Sensor selection |
+| `realsense_reliable.launch.py` | `orbibot_navigation.launch.py sensors:=realsense` | Consolidated |
+| `lidar.launch.py` | `sensors.launch.py` | Modular sensors |
+
+### Migration Commands
+```bash
+# Old command
+ros2 launch orbibot_navigation basic_navigation.launch.py
+
+# New equivalent
+ros2 launch orbibot_navigation orbibot_navigation.launch.py
+
+# Old command
+ros2 launch orbibot_navigation realsense_navigation.launch.py
+
+# New equivalent
+ros2 launch orbibot_navigation orbibot_navigation.launch.py sensors:=realsense
+```
 
 ## Topics
 
 ### Subscribed Topics
 - `/scan` - LIDAR data for SLAM and obstacle detection
-- `/orbibot/odometry/filtered` - Enhanced odometry from EKF
+- `/odom` - Odometry data from orbibot_control
 - `/goal_pose` - Navigation goals
+- `/cmd_vel` - Velocity commands (output to robot)
 
 ### Published Topics
 - `/map` - Occupancy grid map
-- `/cmd_vel` - Velocity commands to robot
 - `/plan` - Global path plan
 - `/local_plan` - Local trajectory
-
-## Configuration
-
-### SLAM Parameters (`config/slam_params.yaml`)
-- Map resolution, update rates
-- Loop closure settings
-- Scan matching parameters
-
-### Navigation Parameters (`config/nav2_params.yaml`)
-- Costmap configuration
-- Path planning algorithms
-- Controller parameters optimized for mecanum drive
+- `/costmap` - Local and global costmaps
 
 ## Troubleshooting
 
-1. **No map being built**: Check that `/scan` topic is published and LIDAR is working
-2. **Poor localization**: Verify that `/orbibot/odometry/filtered` is published
-3. **Robot not moving**: Check that `/cmd_vel` commands reach orbibot_hardware
-4. **Path planning fails**: Verify map quality and goal accessibility
+### Common Issues
+1. **No map being built** - Check LIDAR topics and SLAM parameters
+2. **Poor localization** - Verify map quality and AMCL parameters
+3. **Navigation fails** - Check costmap parameters and robot footprint
+4. **Sensor not detected** - Verify device permissions and connections
 
-## Next Steps
+### Debug Commands
+```bash
+# Check topics
+ros2 topic list | grep -E "(scan|map|odom|cmd_vel)"
 
-- Install required packages with apt
-- Test SLAM mapping
-- Build maps of your environment
-- Configure navigation parameters for your specific needs
-- Integrate with mission planning for complex tasks
+# Monitor navigation status
+ros2 topic echo /navigate_to_pose/_action/status
+
+# Check transforms
+ros2 run tf2_tools view_frames
+```
+
+## Performance Tuning
+
+### For Better Mapping
+- Reduce `minimum_travel_distance` in SLAM params
+- Increase `map_update_interval` for real-time mapping
+- Adjust `correlation_search_space_dimension` for accuracy
+
+### For Better Navigation
+- Tune `controller_frequency` for responsiveness
+- Adjust `xy_goal_tolerance` for precision
+- Modify `max_vel_x/y` for speed requirements
+
+## Future Enhancements
+
+- Multi-robot coordination support
+- Enhanced sensor fusion
+- Advanced behavior trees
+- Mission planning integration
