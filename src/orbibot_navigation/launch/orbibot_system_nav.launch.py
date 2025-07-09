@@ -49,6 +49,12 @@ def generate_launch_description():
         description='Start control manager'
     )
     
+    declare_start_lidar_arg = DeclareLaunchArgument(
+        'start_lidar',
+        default_value='true',
+        description='Start RPLIDAR'
+    )
+    
     declare_rviz_arg = DeclareLaunchArgument(
         'rviz',
         default_value='true',
@@ -66,6 +72,7 @@ def generate_launch_description():
     use_sim_time = LaunchConfiguration('use_sim_time')
     start_hardware = LaunchConfiguration('start_hardware')
     start_control = LaunchConfiguration('start_control')
+    start_lidar = LaunchConfiguration('start_lidar')
     rviz = LaunchConfiguration('rviz')
     params_file = LaunchConfiguration('params_file')
     
@@ -113,6 +120,23 @@ def generate_launch_description():
         condition=IfCondition(start_control)
     )
     
+    # RPLIDAR Node
+    rplidar_node = Node(
+        package='rplidar_ros',
+        executable='rplidar_composition',
+        name='rplidar_node',
+        output='screen',
+        parameters=[{
+            'serial_port': '/dev/lidar',
+            'serial_baudrate': 115200,
+            'frame_id': 'lidar_link',
+            'inverted': False,
+            'angle_compensate': True,
+            'use_sim_time': use_sim_time,
+        }],
+        condition=IfCondition(start_lidar)
+    )
+    
     # Navigation Stack
     navigation_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
@@ -136,6 +160,7 @@ def generate_launch_description():
         declare_use_sim_time_arg,
         declare_start_hardware_arg,
         declare_start_control_arg,
+        declare_start_lidar_arg,
         declare_rviz_arg,
         declare_params_file_arg,
         
@@ -143,5 +168,6 @@ def generate_launch_description():
         robot_description_launch,
         hardware_launch,
         control_launch,
+        rplidar_node,
         navigation_launch,
     ])
