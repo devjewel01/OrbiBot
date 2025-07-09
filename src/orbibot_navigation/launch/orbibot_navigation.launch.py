@@ -22,7 +22,6 @@ def generate_launch_description():
     
     # Package directories
     nav_pkg_dir = get_package_share_directory('orbibot_navigation')
-    nav2_bringup_dir = get_package_share_directory('nav2_bringup')
     
     # Launch arguments
     declare_mode_arg = DeclareLaunchArgument(

@@ -30,6 +30,12 @@ install(DIRECTORY maps/
   DESTINATION share/${PROJECT_NAME}/maps
 )
 
+# Install Python modules
+install(DIRECTORY orbibot_navigation/
+  DESTINATION lib/${PROJECT_NAME}/
+  USE_SOURCE_PERMISSIONS
+)
+
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
