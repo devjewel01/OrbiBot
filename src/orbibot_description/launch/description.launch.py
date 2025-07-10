@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+""" OrbiBot Run On Raspberry Pi 5 without gui using Ubuntu 24.04 Server & GUI Rviz See using Computer with same ROS domain Id-42 """
+
 import os
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
@@ -14,15 +16,6 @@ def generate_launch_description():
     
     # Package directory
     pkg_dir = get_package_share_directory('orbibot_description')
-    
-    # Launch arguments
-    use_sim_time_arg = DeclareLaunchArgument(
-        'use_sim_time',
-        default_value='false',
-        description='Use simulation time'
-    )
-    
-    use_sim_time = LaunchConfiguration('use_sim_time')
     
     # URDF file path
     urdf_file = os.path.join(pkg_dir, 'urdf', 'orbibot.urdf.xacro')
@@ -41,11 +34,18 @@ def generate_launch_description():
         output='screen',
         parameters=[{
             'robot_description': robot_description,
-            'use_sim_time': use_sim_time,
         }]
+    )
+
+    # Joint State Publisher node - publishes wheel joint states
+    joint_state_publisher_node = Node(
+        package='joint_state_publisher',
+        executable='joint_state_publisher',
+        name='joint_state_publisher',
+        output='screen',
     )
     
     return LaunchDescription([
-        use_sim_time_arg,
         robot_state_publisher,
+        joint_state_publisher_node
     ])

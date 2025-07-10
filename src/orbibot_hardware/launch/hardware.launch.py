@@ -22,27 +22,19 @@ def generate_launch_description():
         pkg_orbibot_hardware, 'config', 'hardware_params.yaml'
     ])
     
-    # Launch arguments
-    declare_use_sim_time = DeclareLaunchArgument(
-        'use_sim_time',
-        default_value='false',
-        description='Use simulation time if true'
-    )
-    
     declare_serial_port = DeclareLaunchArgument(
         'serial_port',
-        default_value='/dev/motordriver',
+        default_value='/dev/motordriver', 
         description='Serial port for motor driver'
     )
     
     declare_start_enabled = DeclareLaunchArgument(
         'motors_enabled',
-        default_value='false',
+        default_value='true',
         description='Start with motors enabled'
     )
     
     # Launch configuration variables
-    use_sim_time = LaunchConfiguration('use_sim_time')
     serial_port = LaunchConfiguration('serial_port')
     motors_enabled = LaunchConfiguration('motors_enabled')
     
@@ -55,7 +47,6 @@ def generate_launch_description():
         parameters=[
             hardware_config,
             {
-                'use_sim_time': use_sim_time,
                 'hardware.serial_port': serial_port,
             }
         ],
@@ -83,7 +74,6 @@ def generate_launch_description():
     
     return LaunchDescription([
         # Arguments
-        declare_use_sim_time,
         declare_serial_port,
         declare_start_enabled,
         

@@ -1,0 +1,33 @@
+/**:
+  ros__parameters:
+    # RPLIDAR A1 Configuration
+    channel_type: serial
+    serial_port: /dev/lidar
+    serial_baudrate: 115200
+    frame_id: laser
+    inverted: false
+    angle_compensate: true
+    scan_mode: Standard
+    
+    # Scan parameters
+    scan_frequency: 10.0  # Hz
+    
+    # Range limits
+    range_min: 0.15  # meters
+    range_max: 12.0  # meters
+    
+    # Quality filtering
+    scan_filter_enabled: true
+    scan_filter_min_distance: 0.15
+    scan_filter_max_distance: 12.0
+    
+    # Auto reconnect
+    auto_reconnect: true
+    reconnect_timeout: 2.0
+    
+    # Publishing
+    publish_scan: true
+    publish_intensity: false
+    
+    # Motor control
+    motor_pwm: 660  # Default PWM value for motor speed

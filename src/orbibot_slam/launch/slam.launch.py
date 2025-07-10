@@ -15,7 +15,7 @@ def generate_launch_description():
     """Generate SLAM launch description"""
     
     # Package directories
-    nav_pkg_dir = get_package_share_directory('orbibot_navigation')
+    slam_pkg_dir = get_package_share_directory('orbibot_slam')
     
     # Launch arguments
     use_sim_time_arg = DeclareLaunchArgument(
@@ -26,7 +26,7 @@ def generate_launch_description():
     
     slam_params_file_arg = DeclareLaunchArgument(
         'slam_params_file',
-        default_value=os.path.join(nav_pkg_dir, 'config', 'orbibot_slam_params.yaml'),
+        default_value=os.path.join(slam_pkg_dir, 'config', 'slam_params.yaml'),
         description='Path to SLAM parameters file'
     )
     

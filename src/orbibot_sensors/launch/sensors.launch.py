@@ -2,6 +2,7 @@
 """
 OrbiBot Sensor System Launch
 Configurable sensor launching for different sensor combinations
+Uses individual sensor launch files from orbibot_sensors package
 """
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
@@ -18,9 +19,9 @@ def generate_launch_description():
     # Launch arguments
     sensors_arg = DeclareLaunchArgument(
         'sensors',
-        default_value='lidar',
-        description='Sensor configuration: lidar, realsense, or both',
-        choices=['lidar', 'realsense', 'both']
+        default_value='both',
+        description='Sensor configuration: lidar, camera, or both',
+        choices=['lidar', 'camera', 'both']
     )
     
     use_sim_time_arg = DeclareLaunchArgument(
@@ -35,54 +36,58 @@ def generate_launch_description():
         description='Log level for all nodes'
     )
     
+    enable_depth_to_scan_arg = DeclareLaunchArgument(
+        'enable_depth_to_scan',
+        default_value='true',
+        description='Enable depth to laser scan conversion'
+    )
+    
     # Launch configuration
     sensors = LaunchConfiguration('sensors')
     use_sim_time = LaunchConfiguration('use_sim_time')
     log_level = LaunchConfiguration('log_level')
+    enable_depth_to_scan = LaunchConfiguration('enable_depth_to_scan')
     
-    # LIDAR Node
-    lidar_node = Node(
-        package='rplidar_ros',
-        executable='rplidar_composition',
-        name='rplidar_node',
-        output='screen',
-        parameters=[{
+    # LIDAR Launch (using orbibot_sensors lidar.launch.py)
+    lidar_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([
+            PathJoinSubstitution([
+                FindPackageShare('orbibot_sensors'),
+                'launch',
+                'lidar.launch.py'
+            ])
+        ]),
+        launch_arguments={
             'serial_port': '/dev/lidar',
-            'serial_baudrate': 115200,
-            'frame_id': 'lidar_link',
-            'inverted': False,
-            'angle_compensate': True,
-            'use_sim_time': use_sim_time,
-        }],
-        arguments=['--ros-args', '--log-level', log_level],
+            'frame_id': 'laser',
+            'scan_mode': 'Standard',
+        }.items(),
         condition=IfCondition(OrSubstitution(
             EqualsSubstitution(sensors, 'lidar'),
             EqualsSubstitution(sensors, 'both')
         ))
     )
     
-    # RealSense Camera Launch
-    realsense_launch = IncludeLaunchDescription(
+    # RealSense Camera Launch (using orbibot_sensors camera.launch.py)
+    camera_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
             PathJoinSubstitution([
-                FindPackageShare('realsense2_camera'),
+                FindPackageShare('orbibot_sensors'),
                 'launch',
-                'rs_launch.py'
+                'camera.launch.py'
             ])
         ]),
         launch_arguments={
-            'use_sim_time': use_sim_time,
-            'enable_depth': 'True',
-            'enable_color': 'True',
-            'enable_infra1': 'False',
-            'enable_infra2': 'False',
-            'depth_module.profile': '640x480x30',
-            'rgb_camera.profile': '640x480x30',
-            'align_depth.enable': 'True',
-            'pointcloud.enable': 'True',
+            'camera_name': 'camera',
+            'enable_color': 'true',
+            'enable_depth': 'true',
+            'enable_pointcloud': 'true',
+            'color_width': '640',
+            'color_height': '480',
+            'color_fps': '30',
         }.items(),
         condition=IfCondition(OrSubstitution(
-            EqualsSubstitution(sensors, 'realsense'),
+            EqualsSubstitution(sensors, 'camera'),
             EqualsSubstitution(sensors, 'both')
         ))
     )
@@ -107,10 +112,9 @@ def generate_launch_description():
             ('scan', '/scan_from_depth'),
         ],
         arguments=['--ros-args', '--log-level', log_level],
-        condition=IfCondition(OrSubstitution(
-            EqualsSubstitution(sensors, 'realsense'),
-            EqualsSubstitution(sensors, 'both')
-        ))
+        condition=IfCondition(
+            EqualsSubstitution(enable_depth_to_scan, 'true')
+        )
     )
     
     return LaunchDescription([
@@ -118,9 +122,10 @@ def generate_launch_description():
         sensors_arg,
         use_sim_time_arg,
         log_level_arg,
+        enable_depth_to_scan_arg,
         
-        # Sensor nodes
-        lidar_node,
-        realsense_launch,
+        # Sensor launches
+        lidar_launch,
+        camera_launch,
         depth_to_scan_node,
     ])
