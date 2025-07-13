@@ -82,7 +82,7 @@ def generate_launch_description():
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([
                 PathJoinSubstitution([
-                    FindPackageShare('orbibot_navigation'),
+                    FindPackageShare('orbibot_slam'),
                     'launch',
                     'slam.launch.py'
                 ])
@@ -142,7 +142,7 @@ def generate_launch_description():
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([
                 PathJoinSubstitution([
-                    FindPackageShare('orbibot_navigation'),
+                    FindPackageShare('orbibot_slam'),
                     'launch',
                     'slam.launch.py'
                 ])

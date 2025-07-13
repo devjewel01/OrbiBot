@@ -2,10 +2,10 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>orbibot_slam</name>
-  <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="jewel.nath@orbitax.com">jewel</maintainer>
-  <license>TODO: License declaration</license>
+  <version>1.0.0</version>
+  <description>SLAM package for OrbiBot using slam_toolbox</description>
+  <maintainer email="jewel.nath@orbitax.com">Jewel Nath</maintainer>
+  <license>MIT</license>
 
   <depend>rclpy</depend>
   <depend>nav2_common</depend>

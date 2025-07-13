@@ -2,15 +2,30 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>orbibot_sensors</name>
-  <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="jewel.nath@orbitax.com">jewel</maintainer>
-  <license>TODO: License declaration</license>
+  <version>1.0.0</version>
+  <description>Sensor integration package for OrbiBot - RPLidar A1 and Intel RealSense D435</description>
+  <maintainer email="jewel.nath@orbitax.com">Jewel Nath</maintainer>
+  <license>MIT</license>
 
   <depend>rclpy</depend>
   <depend>sensor_msgs</depend>
   <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
   <depend>tf2_ros</depend>
+  <depend>tf2_geometry_msgs</depend>
+  <depend>std_msgs</depend>
+  
+  <!-- Sensor drivers -->
+  <exec_depend>rplidar_ros</exec_depend>
+  <exec_depend>realsense2_camera</exec_depend>
+  <exec_depend>depthimage_to_laserscan</exec_depend>
+  
+  <!-- OrbiBot messages -->
+  <depend>orbibot_msgs</depend>
+  
+  <!-- Launch dependencies -->
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

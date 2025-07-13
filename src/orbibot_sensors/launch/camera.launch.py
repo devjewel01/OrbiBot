@@ -100,12 +100,12 @@ def generate_launch_description():
         output='screen'
     )
     
-    # Static transform for camera optical frame
+    # Static transform for camera optical frame (ROS optical frame convention)
     camera_optical_tf_broadcaster = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
         name='camera_optical_tf_broadcaster',
-        arguments=['0', '0', '0', '-1.57079632679', '0', '-1.57079632679', 'camera_link', 'camera_color_optical_frame'],
+        arguments=['0', '0', '0', '-1.5708', '0', '-1.5708', 'camera_link', 'camera_color_optical_frame'],
         output='screen'
     )
     

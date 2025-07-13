@@ -4,7 +4,7 @@ package_name = 'orbibot_sensors'
 
 setup(
     name=package_name,
-    version='0.0.0',
+    version='1.0.0',
     packages=find_packages(exclude=['test']),
     data_files=[
         ('share/ament_index/resource_index/packages',
@@ -18,14 +18,14 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='jewel',
+    maintainer='Jewel Nath',
     maintainer_email='jewel.nath@orbitax.com',
-    description='TODO: Package description',
-    license='TODO: License declaration',
+    description='Sensor integration package for OrbiBot - RPLidar A1 and Intel RealSense D435',
+    license='MIT',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'sensor_fusion = orbibot_sensors.sensor_fusion:main',
+            # Removed sensor_fusion - using robot_localization instead
         ],
     },
 )

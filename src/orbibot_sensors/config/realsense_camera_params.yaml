@@ -4,7 +4,6 @@
     device_type: d435
     serial_no: ""
     usb_port_id: ""
-    device_type: ""
     
     # Camera settings
     camera_name: camera

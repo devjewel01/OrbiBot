@@ -3,7 +3,7 @@
 import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, TimerAction
+from launch.actions import DeclareLaunchArgument, TimerAction, ExecuteProcess
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
@@ -62,11 +62,10 @@ def generate_launch_description():
     motor_enable_cmd = TimerAction(
         period=3.0,  # Wait 3 seconds after hardware node starts
         actions=[
-            Node(
-                package='orbibot_hardware',
-                executable='motor_enable_client',
+            ExecuteProcess(
+                cmd=['ros2', 'service', 'call', '/orbibot/set_motor_enable', 
+                     'orbibot_msgs/srv/SetMotorEnable', '{enable: true}'],
                 name='motor_enable_startup',
-                parameters=[{'enable': motors_enabled}],
                 condition=IfCondition(motors_enabled)
             )
         ]

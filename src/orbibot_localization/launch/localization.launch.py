@@ -51,26 +51,9 @@ def generate_launch_description():
     log_level = LaunchConfiguration('log_level')
     
     
-    # Sensor Fusion Node
-    sensor_fusion_node = Node(
-        package='orbibot_localization',
-        executable='sensor_fusion',
-        name='sensor_fusion',
-        output='screen',
-        parameters=[
-            config_file,
-            {
-                'use_sim_time': use_sim_time,
-                'enable_visual_odometry': enable_visual,
-                'enable_lidar_odometry': enable_lidar
-            }
-        ],
-        arguments=['--ros-args', '--log-level', log_level],
-        condition=IfCondition('false')  # Disable sensor fusion - using robot_localization instead
-    )
+    # Custom sensor fusion removed - using robot_localization EKF instead
     
-    # Robot Localization (EKF) from robot_localization package
-    # This provides an alternative/backup localization method
+    # Robot Localization EKF - fuses wheel odometry + IMU data
     robot_localization_ekf = Node(
         package='robot_localization',
         executable='ekf_node',
@@ -165,6 +148,5 @@ def generate_launch_description():
         log_level_arg,
         
         # Nodes
-        # sensor_fusion_node,  # Disabled for now
-        robot_localization_ekf,  # Using standard robot_localization EKF
+        robot_localization_ekf,
     ])

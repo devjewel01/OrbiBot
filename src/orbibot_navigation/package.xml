@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>orbibot_navigation</name>
-  <version>0.0.0</version>
+  <version>1.0.0</version>
   <description>Navigation package for OrbiBot with SLAM and autonomous navigation</description>
   <maintainer email="jewel.nath@orbitax.com">Jewel Nath</maintainer>
   <license>MIT</license>
@@ -15,9 +15,7 @@
   <depend>tf2</depend>
   <depend>tf2_ros</depend>
   <depend>orbibot_msgs</depend>
-  <depend>orbibot_description</depend>
-  <depend>orbibot_hardware</depend>
-  <depend>orbibot_control</depend>
+  <depend>orbibot_slam</depend>
   <depend>rclpy</depend>
   <depend>std_msgs</depend>
   
