@@ -183,12 +183,12 @@
                 <span class="data-value" id="motorFL">0 | 0.00</span>
             </div>
             <div class="data-row">
-                <span class="data-label">Front Right</span>
-                <span class="data-value" id="motorFR">0 | 0.00</span>
-            </div>
-            <div class="data-row">
                 <span class="data-label">Back Left</span>
                 <span class="data-value" id="motorBL">0 | 0.00</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">Front Right</span>
+                <span class="data-value" id="motorFR">0 | 0.00</span>
             </div>
             <div class="data-row">
                 <span class="data-label">Back Right</span>
@@ -316,11 +316,11 @@
                     updateStatus('hardwareOk', data.system_status.hardware_ok);
                     updateStatus('emergencyStop', !data.system_status.emergency_stop);
                     
-                    // Motor feedback
+                    // Motor feedback - ordered as FL, BL, FR, BR to match hardware Motor1,2,3,4
                     const motors = data.motor_feedback;
                     document.getElementById('motorFL').textContent = `${motors.encoder_counts[0]} | ${formatNumber(motors.velocities[0])}`;
-                    document.getElementById('motorFR').textContent = `${motors.encoder_counts[1]} | ${formatNumber(motors.velocities[1])}`;
-                    document.getElementById('motorBL').textContent = `${motors.encoder_counts[2]} | ${formatNumber(motors.velocities[2])}`;
+                    document.getElementById('motorBL').textContent = `${motors.encoder_counts[1]} | ${formatNumber(motors.velocities[1])}`;
+                    document.getElementById('motorFR').textContent = `${motors.encoder_counts[2]} | ${formatNumber(motors.velocities[2])}`;
                     document.getElementById('motorBR').textContent = `${motors.encoder_counts[3]} | ${formatNumber(motors.velocities[3])}`;
                     
                     // IMU data

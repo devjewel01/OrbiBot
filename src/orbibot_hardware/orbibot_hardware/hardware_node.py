@@ -353,8 +353,8 @@ class OrbiBot_Hardware_Node(Node):
         
         msg.name = [
             'wheel_front_left_joint',
-            'wheel_front_right_joint', 
             'wheel_rear_left_joint',
+            'wheel_front_right_joint',
             'wheel_rear_right_joint'
         ]
         

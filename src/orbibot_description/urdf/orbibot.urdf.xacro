@@ -109,11 +109,11 @@
 
   </xacro:macro>
 
-  <!-- Create all wheels using the macro -->
+  <!-- Create all wheels using the macro - ordered to match hardware Motor1,2,3,4 -->
   <xacro:mecanum_wheel prefix="front_left"  x_pos="${wheelbase/2}"  y_pos="${track_width/2}"  rpy_val="-1.57 0 0" mesh_file="mechanical-wheel-FrontLeft-BackRight.stl"/>
+  <xacro:mecanum_wheel prefix="rear_left"   x_pos="${-wheelbase/2}" y_pos="${track_width/2}"  rpy_val="-1.57 0 0" mesh_file="mechanical-wheel-FrontRight-BackLeft.stl"/>
   <xacro:mecanum_wheel prefix="front_right" x_pos="${wheelbase/2}"  y_pos="${-track_width/2}" rpy_val="1.57 0 0"  mesh_file="mechanical-wheel-FrontRight-BackLeft.stl"/>
   <xacro:mecanum_wheel prefix="rear_right"  x_pos="${-wheelbase/2}" y_pos="${-track_width/2}" rpy_val="1.57 0 0"  mesh_file="mechanical-wheel-FrontLeft-BackRight.stl"/>
-  <xacro:mecanum_wheel prefix="rear_left"   x_pos="${-wheelbase/2}" y_pos="${track_width/2}"  rpy_val="-1.57 0 0" mesh_file="mechanical-wheel-FrontRight-BackLeft.stl"/>
 
   <!-- RPLIDAR A1 -->
   <joint name="lidar_joint" type="fixed">
