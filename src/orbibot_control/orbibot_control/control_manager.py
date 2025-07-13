@@ -13,7 +13,7 @@ import time
 
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
-from sensor_msgs.msg import JointState
+from sensor_msgs.msg import JointState, Imu
 from std_msgs.msg import Header
 from tf2_ros import TransformBroadcaster
 from geometry_msgs.msg import TransformStamped
@@ -47,6 +47,9 @@ class OrbiBot_Control_Manager(Node):
         self.theta = 0.0
         self.last_time = self.get_clock().now()
         
+        # IMU state for orientation
+        self.imu_orientation = None
+        
         # Create QoS profiles
         reliable_qos = QoSProfile(reliability=ReliabilityPolicy.RELIABLE, depth=10)
         best_effort_qos = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, depth=10)
@@ -61,6 +64,9 @@ class OrbiBot_Control_Manager(Node):
         self.safety_status_sub = self.create_subscription(
             SafetyStatus, 'orbibot/safety_status',
             self.safety_status_callback, best_effort_qos)
+        self.imu_sub = self.create_subscription(
+            Imu, 'imu/data',
+            self.imu_callback, best_effort_qos)
         
         # Publishers - Control node is sole odometry publisher
         self.odom_pub = self.create_publisher(Odometry, 'odom', 10)
@@ -178,6 +184,10 @@ class OrbiBot_Control_Manager(Node):
         if msg.low_battery:
             self.get_logger().warn("Low battery warning!")
     
+    def imu_callback(self, msg: Imu):
+        """Store IMU orientation for odometry"""
+        self.imu_orientation = msg.orientation
+    
     def publish_odometry(self):
         """Publish odometry message and TF"""
         current_time = self.get_clock().now()
@@ -193,10 +203,15 @@ class OrbiBot_Control_Manager(Node):
         odom_msg.pose.pose.position.y = self.y
         odom_msg.pose.pose.position.z = 0.0
         
-        # Orientation (quaternion from yaw)
+        # Orientation - use IMU data if available, otherwise wheel odometry
         import math
-        odom_msg.pose.pose.orientation.z = math.sin(self.theta / 2.0)
-        odom_msg.pose.pose.orientation.w = math.cos(self.theta / 2.0)
+        if self.imu_orientation is not None:
+            # Use IMU orientation (more accurate)
+            odom_msg.pose.pose.orientation = self.imu_orientation
+        else:
+            # Fallback to wheel odometry orientation
+            odom_msg.pose.pose.orientation.z = math.sin(self.theta / 2.0)
+            odom_msg.pose.pose.orientation.w = math.cos(self.theta / 2.0)
         
         # Velocity
         if hasattr(self, 'current_vx'):
@@ -225,8 +240,12 @@ class OrbiBot_Control_Manager(Node):
             t.transform.translation.y = self.y
             t.transform.translation.z = 0.0
             
-            t.transform.rotation.z = math.sin(self.theta / 2.0)
-            t.transform.rotation.w = math.cos(self.theta / 2.0)
+            # Use IMU orientation if available, otherwise wheel odometry
+            if self.imu_orientation is not None:
+                t.transform.rotation = self.imu_orientation
+            else:
+                t.transform.rotation.z = math.sin(self.theta / 2.0)
+                t.transform.rotation.w = math.cos(self.theta / 2.0)
             
             self.tf_broadcaster.sendTransform(t)
             
