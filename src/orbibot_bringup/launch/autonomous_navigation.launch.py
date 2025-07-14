@@ -27,7 +27,7 @@ def generate_launch_description():
     # Include hardware launch
     hardware_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
-            PathJoinSubstitution([orbibot_navigation_dir, 'launch', 'hardware.launch.py'])
+            PathJoinSubstitution([FindPackageShare('orbibot_hardware'), 'launch', 'hardware.launch.py'])
         ]),
         launch_arguments={
             'use_sim_time': use_sim_time
@@ -37,7 +37,7 @@ def generate_launch_description():
     # Include SLAM launch
     slam_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
-            PathJoinSubstitution([orbibot_navigation_dir, 'launch', 'slam.launch.py'])
+            PathJoinSubstitution([FindPackageShare('orbibot_slam'), 'launch', 'slam.launch.py'])
         ]),
         launch_arguments={
             'use_sim_time': use_sim_time

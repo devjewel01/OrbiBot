@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-OrbiBot Complete System Navigation Launch
-Integrates robot description, hardware, control, and navigation stack
+OrbiBot Complete System Launch
+Integrates all robot components: hardware, control, sensors, localization, and navigation
 Author: Claude Code Assistant
-Updated: 2025-07-09
+Created: 2025-07-14
 """
 
 import os
@@ -18,11 +18,10 @@ from ament_index_python.packages import get_package_share_directory
 
 
 def generate_launch_description():
-    """Generate complete system navigation launch description"""
+    """Generate complete system launch description"""
     
     # Package directories
-    nav_pkg_dir = get_package_share_directory('orbibot_navigation')
-    desc_pkg_dir = get_package_share_directory('orbibot_description')
+    bringup_pkg_dir = get_package_share_directory('orbibot_bringup')
     
     # Launch arguments
     declare_nav_mode_arg = DeclareLaunchArgument(
@@ -49,22 +48,34 @@ def generate_launch_description():
         description='Start control manager'
     )
     
-    declare_start_lidar_arg = DeclareLaunchArgument(
-        'start_lidar',
+    declare_start_sensors_arg = DeclareLaunchArgument(
+        'start_sensors',
         default_value='true',
-        description='Start RPLIDAR'
+        description='Start sensors (LIDAR and camera)'
+    )
+    
+    declare_start_localization_arg = DeclareLaunchArgument(
+        'start_localization',
+        default_value='true',
+        description='Start enhanced localization'
+    )
+    
+    declare_start_navigation_arg = DeclareLaunchArgument(
+        'start_navigation',
+        default_value='true',
+        description='Start navigation stack'
+    )
+    
+    declare_start_webui_arg = DeclareLaunchArgument(
+        'start_webui',
+        default_value='false',
+        description='Start web monitoring interface'
     )
     
     declare_rviz_arg = DeclareLaunchArgument(
         'rviz',
-        default_value='true',
+        default_value='false',
         description='Launch RViz'
-    )
-    
-    declare_params_file_arg = DeclareLaunchArgument(
-        'params_file',
-        default_value=os.path.join(nav_pkg_dir, 'config', 'orbibot_nav2_params.yaml'),
-        description='Navigation parameters file'
     )
     
     # Launch configuration variables
@@ -72,9 +83,11 @@ def generate_launch_description():
     use_sim_time = LaunchConfiguration('use_sim_time')
     start_hardware = LaunchConfiguration('start_hardware')
     start_control = LaunchConfiguration('start_control')
-    start_lidar = LaunchConfiguration('start_lidar')
+    start_sensors = LaunchConfiguration('start_sensors')
+    start_localization = LaunchConfiguration('start_localization')
+    start_navigation = LaunchConfiguration('start_navigation')
+    start_webui = LaunchConfiguration('start_webui')
     rviz = LaunchConfiguration('rviz')
-    params_file = LaunchConfiguration('params_file')
     
     # Robot Description
     robot_description_launch = IncludeLaunchDescription(
@@ -82,7 +95,7 @@ def generate_launch_description():
             PathJoinSubstitution([
                 FindPackageShare('orbibot_description'),
                 'launch',
-                'robot_state.launch.py'
+                'description.launch.py'
             ])
         ]),
         launch_arguments={
@@ -120,21 +133,34 @@ def generate_launch_description():
         condition=IfCondition(start_control)
     )
     
-    # RPLIDAR Node
-    rplidar_node = Node(
-        package='rplidar_ros',
-        executable='rplidar_composition',
-        name='rplidar_node',
-        output='screen',
-        parameters=[{
-            'serial_port': '/dev/lidar',
-            'serial_baudrate': 115200,
-            'frame_id': 'lidar_link',
-            'inverted': False,
-            'angle_compensate': True,
+    # Sensors
+    sensors_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([
+            PathJoinSubstitution([
+                FindPackageShare('orbibot_sensors'),
+                'launch',
+                'sensors.launch.py'
+            ])
+        ]),
+        launch_arguments={
             'use_sim_time': use_sim_time,
-        }],
-        condition=IfCondition(start_lidar)
+        }.items(),
+        condition=IfCondition(start_sensors)
+    )
+    
+    # Enhanced Localization
+    localization_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([
+            PathJoinSubstitution([
+                FindPackageShare('orbibot_localization'),
+                'launch',
+                'localization.launch.py'
+            ])
+        ]),
+        launch_arguments={
+            'use_sim_time': use_sim_time,
+        }.items(),
+        condition=IfCondition(start_localization)
     )
     
     # Navigation Stack
@@ -143,15 +169,30 @@ def generate_launch_description():
             PathJoinSubstitution([
                 FindPackageShare('orbibot_navigation'),
                 'launch',
-                'orbibot_navigation.launch.py'
+                'navigation.launch.py'
             ])
         ]),
         launch_arguments={
             'mode': nav_mode,
             'use_sim_time': use_sim_time,
-            'params_file': params_file,
             'rviz': rviz,
-        }.items()
+        }.items(),
+        condition=IfCondition(start_navigation)
+    )
+    
+    # Web UI
+    webui_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([
+            PathJoinSubstitution([
+                FindPackageShare('orbibot_webui'),
+                'launch',
+                'webui.launch.py'
+            ])
+        ]),
+        launch_arguments={
+            'use_sim_time': use_sim_time,
+        }.items(),
+        condition=IfCondition(start_webui)
     )
     
     return LaunchDescription([
@@ -160,14 +201,18 @@ def generate_launch_description():
         declare_use_sim_time_arg,
         declare_start_hardware_arg,
         declare_start_control_arg,
-        declare_start_lidar_arg,
+        declare_start_sensors_arg,
+        declare_start_localization_arg,
+        declare_start_navigation_arg,
+        declare_start_webui_arg,
         declare_rviz_arg,
-        declare_params_file_arg,
         
         # Launch components
         robot_description_launch,
         hardware_launch,
         control_launch,
-        rplidar_node,
+        sensors_launch,
+        localization_launch,
         navigation_launch,
+        webui_launch,
     ])
