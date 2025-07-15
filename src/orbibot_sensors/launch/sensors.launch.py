@@ -59,7 +59,7 @@ def generate_launch_description():
         ]),
         launch_arguments={
             'serial_port': '/dev/lidar',
-            'frame_id': 'laser',
+            'frame_id': 'lidar_link',
             'scan_mode': 'Standard',
         }.items(),
         condition=IfCondition(OrSubstitution(

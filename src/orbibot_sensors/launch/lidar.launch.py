@@ -22,7 +22,7 @@ def generate_launch_description():
     
     frame_id_arg = DeclareLaunchArgument(
         'frame_id',
-        default_value='laser',
+        default_value='lidar_link',
         description='Frame ID for laser scan'
     )
     
@@ -61,14 +61,6 @@ def generate_launch_description():
         ]
     )
     
-    # Static transform publisher for laser frame
-    static_transform_publisher = Node(
-        package='tf2_ros',
-        executable='static_transform_publisher',
-        name='laser_tf_broadcaster',
-        arguments=['0', '0', '0.1', '0', '3.14159', '3.14159', 'base_link', 'laser'],
-        output='screen'
-    )
     
     # Log info
     log_info = LogInfo(
@@ -81,5 +73,4 @@ def generate_launch_description():
         scan_mode_arg,
         log_info,
         rplidar_node,
-        static_transform_publisher,
     ])
