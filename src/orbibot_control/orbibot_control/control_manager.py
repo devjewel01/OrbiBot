@@ -172,7 +172,7 @@ class OrbiBot_Control_Manager(Node):
         self.system_ok = msg.hardware_ok
         
         # Log battery status
-        if msg.battery_voltage < 11.5 and msg.battery_voltage > 0:
+        if msg.battery_voltage < 11.0 and msg.battery_voltage > 0:
             self.get_logger().warn(f"Low battery: {msg.battery_voltage:.1f}V")
     
     def safety_status_callback(self, msg: SafetyStatus):

@@ -279,7 +279,7 @@ class OrbiBot_Hardware_Node(Node):
         
         # Check command timeout
         if (time.time() - self.last_cmd_time) > self.cmd_timeout and self.motors_enabled:
-            self.get_logger().warn('Command timeout - stopping motors')
+            # self.get_logger().warn('Command timeout - stopping motors') // Uncomment for debugging
             self.bot.set_motor(0, 0, 0, 0)
         
         # Update encoders
@@ -567,16 +567,16 @@ class OrbiBot_Hardware_Node(Node):
         
         # Take safety actions
         if cmd_timeout and self.motors_enabled:
-            self.get_logger().warn("Command timeout - stopping motors")
+            # self.get_logger().warn("Command timeout - stopping motors")
             self.bot.set_motor(0, 0, 0, 0)
         
         if critical_battery:
-            self.get_logger().error(f"CRITICAL BATTERY: {battery_voltage:.1f}V - Disabling motors")
+            # self.get_logger().error(f"CRITICAL BATTERY: {battery_voltage:.1f}V - Disabling motors")
             self.emergency_stop = True
             self.motors_enabled = False
             self.bot.set_motor(0, 0, 0, 0)
-        elif low_battery:
-            self.get_logger().warn(f"Low battery: {battery_voltage:.1f}V")
+        # elif low_battery:
+            # self.get_logger().warn(f"Low battery: {battery_voltage:.1f}V")
     
     # Service Callbacks
     def set_motor_enable_callback(self, request, response):
