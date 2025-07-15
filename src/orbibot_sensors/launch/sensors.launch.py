@@ -36,17 +36,17 @@ def generate_launch_description():
         description='Log level for all nodes'
     )
     
-    enable_depth_to_scan_arg = DeclareLaunchArgument(
-        'enable_depth_to_scan',
+    enable_camera_to_scan_arg = DeclareLaunchArgument(
+        'enable_camera_to_scan',
         default_value='true',
-        description='Enable depth to laser scan conversion'
+        description='Enable camera depth to laser scan conversion'
     )
     
     # Launch configuration
     sensors = LaunchConfiguration('sensors')
     use_sim_time = LaunchConfiguration('use_sim_time')
     log_level = LaunchConfiguration('log_level')
-    enable_depth_to_scan = LaunchConfiguration('enable_depth_to_scan')
+    enable_camera_to_scan = LaunchConfiguration('enable_camera_to_scan')
     
     # LIDAR Launch (using orbibot_sensors lidar.launch.py)
     lidar_launch = IncludeLaunchDescription(
@@ -92,11 +92,11 @@ def generate_launch_description():
         ))
     )
     
-    # Depth to LaserScan converter (for RealSense navigation)
-    depth_to_scan_node = Node(
+    # Camera depth to LaserScan converter (for RealSense navigation)
+    camera_to_scan_node = Node(
         package='depthimage_to_laserscan',
         executable='depthimage_to_laserscan_node',
-        name='depth_to_scan',
+        name='camera_to_scan',
         output='screen',
         parameters=[{
             'use_sim_time': use_sim_time,
@@ -109,11 +109,11 @@ def generate_launch_description():
         remappings=[
             ('depth', '/camera/depth/image_rect_raw'),
             ('depth_camera_info', '/camera/depth/camera_info'),
-            ('scan', '/scan_from_depth'),
+            ('scan', '/scan_from_camera'),
         ],
         arguments=['--ros-args', '--log-level', log_level],
         condition=IfCondition(
-            EqualsSubstitution(enable_depth_to_scan, 'true')
+            EqualsSubstitution(enable_camera_to_scan, 'true')
         )
     )
     
@@ -122,10 +122,10 @@ def generate_launch_description():
         sensors_arg,
         use_sim_time_arg,
         log_level_arg,
-        enable_depth_to_scan_arg,
+        enable_camera_to_scan_arg,
         
         # Sensor launches
         lidar_launch,
         camera_launch,
-        depth_to_scan_node,
+        camera_to_scan_node,
     ])
