@@ -83,11 +83,11 @@ def generate_launch_description():
         respawn=True,
         respawn_delay=2.0,
         remappings=[
-            ('color/image_raw', '/camera/color/image_raw'),
-            ('depth/image_rect_raw', '/camera/depth/image_rect_raw'),
-            ('color/camera_info', '/camera/color/camera_info'),
-            ('depth/camera_info', '/camera/depth/camera_info'),
-            ('points', '/camera/depth/points'),
+            ('~/color/image_raw', '/camera/color/image_raw'),
+            ('~/depth/image_rect_raw', '/camera/depth/image_rect_raw'),
+            ('~/color/camera_info', '/camera/color/camera_info'),
+            ('~/depth/camera_info', '/camera/depth/camera_info'),
+            ('~/points', '/camera/depth/points'),
         ]
     )
     
