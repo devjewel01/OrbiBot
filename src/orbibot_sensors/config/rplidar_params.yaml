@@ -29,5 +29,8 @@
     publish_scan: true
     publish_intensity: false
     
+    # Time synchronization
+    use_sim_time: false
+    
     # Motor control
     motor_pwm: 660  # Default PWM value for motor speed

@@ -50,6 +50,7 @@ def generate_launch_description():
                 'serial_port': LaunchConfiguration('serial_port'),
                 'frame_id': LaunchConfiguration('frame_id'),
                 'scan_mode': LaunchConfiguration('scan_mode'),
+                'use_sim_time': False,
             }
         ],
         output='screen',
@@ -65,7 +66,7 @@ def generate_launch_description():
         package='tf2_ros',
         executable='static_transform_publisher',
         name='laser_tf_broadcaster',
-        arguments=['0', '0', '0.1', '0', '0', '0', 'base_link', 'laser'],
+        arguments=['0', '0', '0.1', '0', '3.14159', '3.14159', 'base_link', 'laser'],
         output='screen'
     )
     
