@@ -4,8 +4,8 @@ This file provides guidance to Claude Code when working with OrbiBot, a mecanum-
 
 ## Current Development Status
 
-**✅ COMPLETED**: orbibot_description, orbibot_msgs, orbibot_hardware, orbibot_control, orbibot_webui, orbibot_teleop, orbibot_localization, orbibot_sensors, orbibot_slam, orbibot_navigation, orbibot_bringup
-**🔄 ACTIVE**: Full autonomous navigation system with SLAM capabilities
+**✅ COMPLETED**: orbibot_description, orbibot_msgs, orbibot_hardware, orbibot_control, orbibot_webui, orbibot_teleop, orbibot_localization, orbibot_sensors, orbibot_slam, orbibot_navigation, orbibot_bringup, orbibot_simulation
+**🔄 ACTIVE**: Full autonomous navigation system with SLAM capabilities and unified simulation environment
 
 ## Repository Overview
 
@@ -50,6 +50,7 @@ colcon build --packages-select orbibot_sensors
 colcon build --packages-select orbibot_slam
 colcon build --packages-select orbibot_navigation
 colcon build --packages-select orbibot_bringup
+colcon build --packages-select orbibot_simulation
 ```
 
 ## Current Package Status
@@ -222,6 +223,28 @@ ros2 launch orbibot_description orbibot_remote_gui.launch.py   # Remote RViz vis
   - Autonomous navigation capabilities
   - Configurable system startup
 
+### ✅ orbibot_simulation (COMPLETE)
+- **Location**: `src/orbibot_simulation/`
+- **Type**: ament_python package
+- **Contents**: Complete simulation environment including Gazebo integration and simulated hardware interface
+- **Key Files**:
+  - `simulation_hardware_node.py` - Virtual hardware interface that mirrors real robot
+  - `simulation_control_node.py` - Odometry and control coordination
+  - `launch/simulation.launch.py` - Main simulation launcher (unified Gazebo + nodes)
+  - `launch/gazebo_environment.launch.py` - Gazebo environment launcher
+  - `config/gz_bridge.yaml` - ROS-Gazebo bridge configuration
+  - `worlds/empty.sdf` - Gazebo world files
+- **Features**:
+  - **Unified Package**: Single package for all simulation needs
+  - **Complete Gazebo Integration**: Physics simulation, sensor modeling, world environments
+  - **Hardware Simulation**: Identical topics and services as real hardware
+  - **Realistic Systems**: Battery simulation, motor enable/disable, safety systems
+  - **Sensor Simulation**: LIDAR, camera, IMU with realistic noise models
+  - **Mesh File Support**: Proper package:// URI resolution for 3D models
+  - **Bridge Integration**: Seamless ROS-Gazebo topic bridging
+  - **Command Timeout Protection**: Safety features matching real hardware
+  - **Single Command Launch**: Complete simulation environment in one command
+
 ## Development Workflow
 
 ### Current Status
@@ -235,12 +258,15 @@ All core packages are complete and functional:
 - ✅ **Navigation** - Autonomous navigation with Nav2
 - ✅ **Teleoperation** - Multiple control modes
 - ✅ **Web Interface** - Remote monitoring
+- ✅ **Simulation** - Complete Gazebo simulation environment
 
 ### Testing Strategy
 - **Individual Package Testing**: Each package has separate launch files for isolated testing
 - **Component Verification**: Test each component individually before system integration
 - **Remote Development**: Development machine handles all visualization to reduce robot load
 - **Hardware Motor Control**: Always enable motors through service calls for safety
+- **Simulation Testing**: Test algorithms in simulation before hardware deployment
+- **Dual Environment**: Same code runs on real hardware and simulation with use_sim_time flag
 
 ### Future Development Priorities
 1. **orbibot_perception** - Object detection and environment understanding
@@ -295,6 +321,7 @@ echo "export ROS_DOMAIN_ID=42" >> ~/.bashrc
 ~/orbibot_ws/src/orbibot_bringup/      # System launch files and complete robot bringup
 ~/orbibot_ws/src/orbibot_teleop/       # Multiple teleoperation modes
 ~/orbibot_ws/src/orbibot_webui/        # Web monitoring interface
+~/orbibot_ws/src/orbibot_simulation/   # Complete simulation environment (Gazebo + simulated hardware)
 
 # Future packages (to be created)
 ~/orbibot_ws/src/orbibot_perception/   # Object detection and recognition
@@ -323,6 +350,11 @@ ros2 launch orbibot_teleop keyboard_teleop.launch.py          # Keyboard teleope
 ros2 launch orbibot_teleop ps_controller_teleop.launch.py     # PlayStation controller
 ros2 launch orbibot_webui webui.launch.py                     # Web monitoring interface
 
+# Simulation Commands
+ros2 launch orbibot_simulation simulation.launch.py           # Complete simulation (Gazebo + hardware simulation)
+ros2 launch orbibot_simulation gazebo_environment.launch.py   # Gazebo environment only
+ros2 launch orbibot_simulation simulation.launch.py use_gazebo:=false  # Hardware simulation without Gazebo
+
 # Complete System Integration
 ros2 launch orbibot_bringup orbibot_system.launch.py          # Complete system with navigation
 ros2 launch orbibot_bringup orbibot_basic.launch.py           # Basic system (hardware + control + teleop)
@@ -343,6 +375,10 @@ ros2 topic pub /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.1}}" --once
 # Teleoperation options
 ros2 run teleop_twist_keyboard teleop_twist_keyboard  # Basic teleop
 ros2 run orbibot_teleop keyboard_teleop              # Advanced OrbiBot teleop
+
+# Simulation testing and control
+ros2 service call /orbibot/set_motor_enable orbibot_msgs/srv/SetMotorEnable "{enable: true}"  # Enable simulated motors
+ros2 topic pub /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.5}}" --once  # Move forward in simulation
 ```
 
 ## System Operation Modes
@@ -389,11 +425,31 @@ ros2 launch orbibot_description orbibot_remote_gui.launch.py
 ros2 launch orbibot_webui webui.launch.py
 ```
 
+### 5. Simulation Testing
+```bash
+# Complete simulation (Gazebo + hardware simulation, no GUI)
+ros2 launch orbibot_simulation simulation.launch.py gui:=false
+
+# Complete simulation with GUI
+ros2 launch orbibot_simulation simulation.launch.py gui:=true
+
+# Hardware simulation only (no Gazebo)
+ros2 launch orbibot_simulation simulation.launch.py use_gazebo:=false
+
+# Enable motors and test movement
+ros2 service call /orbibot/set_motor_enable orbibot_msgs/srv/SetMotorEnable "{enable: true}"
+ros2 topic pub /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.5}}" --once
+
+# Gazebo environment only (for development)
+ros2 launch orbibot_simulation gazebo_environment.launch.py
+```
+
 ---
 
-**Current Status**: Complete autonomous mobile robot system with individual component testing capability  
+**Current Status**: Complete autonomous mobile robot system with unified simulation environment  
 **Hardware Dependencies**: ROSMaster_Lib installed, proper USB permissions configured, ROS_DOMAIN_ID=42  
-**Development Setup**: Raspberry Pi 5 (robot) + Ubuntu Desktop (visualization)  
-**Capabilities**: Teleoperation, SLAM mapping, autonomous navigation, web monitoring  
-**Testing Philosophy**: Each package tested individually before system integration  
-**Safety Note**: Always test new autonomous features in safe, controlled environment
+**Development Setup**: Raspberry Pi 5 (robot) + Ubuntu Desktop (visualization) + Unified Gazebo simulation  
+**Capabilities**: Teleoperation, SLAM mapping, autonomous navigation, web monitoring, unified simulation package  
+**Simulation**: Single orbibot_simulation package with complete Gazebo integration and mesh file support  
+**Testing Philosophy**: Test in simulation first, then individual components, then system integration  
+**Safety Note**: Always test new autonomous features in simulation before real hardware deployment
