@@ -38,14 +38,13 @@
     infra_format: Y8
     
     # Processing options
-    align_depth: true
-    align_depth_to: color
-    enable_pointcloud: true
-    pointcloud_texture_stream: RS2_STREAM_COLOR
-    pointcloud_texture_index: 0
+    align_depth.enable: true
+    align_depth.align_to: color
+    pointcloud.enable: true
+    pointcloud.stream_filter: RS2_STREAM_COLOR
+    pointcloud.stream_index_filter: 0
     
-    # Filters
-    filters: "spatial,temporal,decimation"
+    # Filters (legacy parameter removed - use individual .enable params)
     
     # Spatial filter
     spatial_filter.enable: true
@@ -62,7 +61,7 @@
     
     # Decimation filter
     decimation_filter.enable: true
-    decimation_filter.filter_magnitude: 2.0
+    decimation_filter.filter_magnitude: 2
     
     # Frame IDs
     # base_frame_id: RealSense creates frames as <namespace>_<camera_name>_<base_frame_id>
