@@ -137,19 +137,18 @@ ros2 launch orbibot_description orbibot_remote_gui.launch.py   # Remote RViz vis
 ### ✅ orbibot_teleop (COMPLETE)
 - **Location**: `src/orbibot_teleop/`
 - **Type**: ament_python package
-- **Contents**: Multiple teleoperation modes
+- **Contents**: PlayStation controller and keyboard teleoperation
 - **Key Files**:
-  - `keyboard_teleop.py` - Advanced keyboard teleoperation
-  - `ps_controller_teleop.py` - PlayStation controller support
-  - `launch/keyboard_teleop.launch.py` - Keyboard teleop launcher
-  - `launch/ps_controller_teleop.launch.py` - Controller teleop launcher
+  - `ps_controller_node.py` - PlayStation controller teleoperation
+  - `emergency_stop_node.py` - Emergency stop functionality
+  - `launch/controller.launch.py` - PS controller teleop launcher
+  - `launch/keyboard.launch.py` - Simple keyboard teleop for testing
 - **Features**:
-  - Hardware-integrated teleop with motor enable/disable
-  - Press-and-hold keyboard control
-  - PlayStation controller support
+  - PlayStation controller with direction-speed control
+  - Emergency stop and motor enable/disable
+  - Simple keyboard teleop using teleop_twist_keyboard
   - SSH/remote operation compatibility
-  - Emergency stop and safety features
-  - Real-time status display and speed adjustment
+  - Hardware integration with safety features
 
 ### ✅ orbibot_sensors (COMPLETE)
 - **Location**: `src/orbibot_sensors/`
@@ -319,8 +318,8 @@ ros2 launch orbibot_sensors lidar.launch.py                   # RPLIDAR A1 only
 ros2 launch orbibot_sensors camera.launch.py                  # RealSense D435 only
 ros2 launch orbibot_localization localization.launch.py       # Enhanced localization (EKF)
 ros2 launch orbibot_slam slam.launch.py                       # SLAM mapping
-ros2 launch orbibot_teleop keyboard_teleop.launch.py          # Keyboard teleoperation
-ros2 launch orbibot_teleop ps_controller_teleop.launch.py     # PlayStation controller
+ros2 launch orbibot_teleop keyboard.launch.py                # Simple keyboard teleoperation
+ros2 launch orbibot_teleop controller.launch.py              # PlayStation controller
 ros2 launch orbibot_webui webui.launch.py                     # Web monitoring interface
 
 # Complete System Integration
@@ -342,7 +341,8 @@ ros2 topic pub /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.1}}" --once
 
 # Teleoperation options
 ros2 run teleop_twist_keyboard teleop_twist_keyboard  # Basic teleop
-ros2 run orbibot_teleop keyboard_teleop              # Advanced OrbiBot teleop
+ros2 run orbibot_teleop ps_controller_node           # PlayStation controller node
+ros2 run orbibot_teleop emergency_stop_node          # Emergency stop node
 ```
 
 ## System Operation Modes
@@ -355,7 +355,7 @@ ros2 launch orbibot_bringup orbibot_basic.launch.py
 # Individual components for debugging
 ros2 launch orbibot_hardware hardware.launch.py
 ros2 launch orbibot_control control.launch.py
-ros2 launch orbibot_teleop keyboard_teleop.launch.py
+ros2 launch orbibot_teleop controller.launch.py
 ```
 
 ### 2. SLAM Mapping
