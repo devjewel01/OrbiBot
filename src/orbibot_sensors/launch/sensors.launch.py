@@ -38,7 +38,7 @@ def generate_launch_description():
     
     enable_camera_to_scan_arg = DeclareLaunchArgument(
         'enable_camera_to_scan',
-        default_value='true',
+        default_value='false',
         description='Enable camera depth to laser scan conversion'
     )
     
