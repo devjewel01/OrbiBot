@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PlayStation Controller Teleop Launch File for OrbiBot
+PlayStation Controller Teleop Launch File for OrbiBot using ROS2 Joy
 """
 
 from launch import LaunchDescription
@@ -10,70 +10,66 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
-    """Generate launch description for PlayStation controller teleop"""
+    """Generate launch description for PlayStation controller teleop using joy"""
     
     # Launch arguments
-    max_linear_speed_arg = DeclareLaunchArgument(
-        'max_linear_speed',
-        default_value='1.0',
-        description='Maximum linear speed (m/s)'
-    )
-    
-    max_angular_speed_arg = DeclareLaunchArgument(
-        'max_angular_speed', 
-        default_value='1.5',
-        description='Maximum angular speed (rad/s)'
+    device_arg = DeclareLaunchArgument(
+        'device',
+        default_value='/dev/input/js0',
+        description='Joystick device path'
     )
     
     deadzone_arg = DeclareLaunchArgument(
         'deadzone',
-        default_value='0.1',
-        description='Analog stick deadzone (0.0-1.0)'
+        default_value='0.05',
+        description='Analog stick deadzone'
     )
     
-    turbo_multiplier_arg = DeclareLaunchArgument(
-        'turbo_multiplier',
-        default_value='2.0',
-        description='Speed multiplier for turbo mode'
-    )
-    
-    precision_multiplier_arg = DeclareLaunchArgument(
-        'precision_multiplier',
-        default_value='0.3',
-        description='Speed multiplier for precision mode'
-    )
-    
-    device_path_arg = DeclareLaunchArgument(
-        'device_path',
-        default_value='/dev/input/js0',
-        description='Input device path for controller'
-    )
-    
-    # Controller teleop node
-    ps_controller_teleop_node = Node(
-        package='orbibot_teleop',
-        executable='ps_controller_teleop',
-        name='ps_controller_teleop',
-        output='screen',
+    # Joy node (reads joystick input)
+    joy_node = Node(
+        package='joy',
+        executable='joy_node',
+        name='joy_node',
         parameters=[{
-            'max_linear_speed': LaunchConfiguration('max_linear_speed'),
-            'max_angular_speed': LaunchConfiguration('max_angular_speed'),
+            'device': LaunchConfiguration('device'),
+            'device_id': 0,
             'deadzone': LaunchConfiguration('deadzone'),
-            'turbo_multiplier': LaunchConfiguration('turbo_multiplier'),
-            'precision_multiplier': LaunchConfiguration('precision_multiplier'),
-            'device_path': LaunchConfiguration('device_path'),
+            'autorepeat_rate': 20.0,
+        }],
+        output='screen'
+    )
+    
+    # Direction-Speed teleop (left stick = direction, right stick = speed)
+    teleop_node = Node(
+        package='orbibot_teleop',
+        executable='direction_speed_teleop',
+        name='direction_speed_teleop',
+        parameters=[{
+            'max_linear_speed': 0.8,     # Max linear speed
+            'max_angular_speed': 1.2,    # Max angular speed
+            'deadzone': 0.05,            # Stick deadzone
         }],
         remappings=[
-            ('/cmd_vel', '/cmd_vel'),
+            ('cmd_vel', '/cmd_vel'),
+        ],
+        output='screen'
+    )
+    
+    # Emergency stop node
+    emergency_stop_node = Node(
+        package='orbibot_teleop',
+        executable='emergency_stop_node',
+        name='emergency_stop_node',
+        output='screen',
+        remappings=[
+            ('/joy', '/joy'),  # Subscribe to joy messages
         ]
     )
     
     return LaunchDescription([
-        max_linear_speed_arg,
-        max_angular_speed_arg,
+        device_arg,
         deadzone_arg,
-        turbo_multiplier_arg,
-        precision_multiplier_arg,
-        device_path_arg,
-        ps_controller_teleop_node,
+        joy_node,
+        teleop_node,
+        emergency_stop_node,  # Emergency stop functionality
     ])

@@ -25,6 +25,8 @@ setup(
         'console_scripts': [
             'keyboard_teleop = orbibot_teleop.keyboard_teleop:main',
             'ps_controller_teleop = orbibot_teleop.ps_controller_teleop:main',
+            'emergency_stop_node = orbibot_teleop.emergency_stop_node:main',
+            'direction_speed_teleop = orbibot_teleop.direction_speed_teleop:main',
         ],
     },
 )

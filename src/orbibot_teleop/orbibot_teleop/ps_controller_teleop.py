@@ -35,7 +35,7 @@ class PSControllerTeleop(Node):
         # Parameters
         self.declare_parameter('max_linear_speed', 1.0)
         self.declare_parameter('max_angular_speed', 1.5) 
-        self.declare_parameter('deadzone', 0.1)
+        self.declare_parameter('deadzone', 0.05)
         self.declare_parameter('turbo_multiplier', 2.0)
         self.declare_parameter('precision_multiplier', 0.3)
         self.declare_parameter('device_path', '/dev/input/js0')
@@ -171,12 +171,18 @@ class PSControllerTeleop(Node):
             for event in self.device.read_loop():
                 # Absolute axis events (analog sticks)
                 if event.type == ecodes.EV_ABS:
+                    # PS5 DualSense and PS4 DualShock mapping
                     if event.code == ecodes.ABS_X:  # Left stick X
                         self.left_stick_x = self.normalize_axis(event.value)
+                        self.get_logger().debug(f"Left stick X: {self.left_stick_x}")
                     elif event.code == ecodes.ABS_Y:  # Left stick Y
                         self.left_stick_y = -self.normalize_axis(event.value)  # Invert Y
+                        self.get_logger().debug(f"Left stick Y: {self.left_stick_y}")
                     elif event.code == ecodes.ABS_RX:  # Right stick X
                         self.right_stick_x = self.normalize_axis(event.value)
+                        self.get_logger().debug(f"Right stick X: {self.right_stick_x}")
+                    elif event.code == ecodes.ABS_RY:  # Right stick Y (not used but available)
+                        pass
                 
                 # Button events
                 elif event.type == ecodes.EV_KEY:
@@ -218,6 +224,10 @@ class PSControllerTeleop(Node):
             left_x = self.apply_deadzone(self.left_stick_x)
             left_y = self.apply_deadzone(self.left_stick_y)
             right_x = self.apply_deadzone(self.right_stick_x)
+            
+            # Debug stick values
+            if abs(left_x) > 0.01 or abs(left_y) > 0.01 or abs(right_x) > 0.01:
+                self.get_logger().info(f"Sticks: LX={left_x:.2f} LY={left_y:.2f} RX={right_x:.2f}")
             
             # Create velocity command
             cmd = Twist()
