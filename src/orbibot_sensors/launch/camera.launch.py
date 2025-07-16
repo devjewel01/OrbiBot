@@ -76,8 +76,7 @@ def generate_launch_description():
                 'enable_pointcloud': LaunchConfiguration('enable_pointcloud'),
                 'color_width': LaunchConfiguration('color_width'),
                 'color_height': LaunchConfiguration('color_height'),
-                'color_fps': LaunchConfiguration('color_fps'),
-                'base_frame_id': 'camera_link',
+                'color_fps': LaunchConfiguration('color_fps')
             }
         ],
         output='screen',
@@ -91,7 +90,6 @@ def generate_launch_description():
             ('~/color/metadata', '/camera/color/metadata'),
             ('~/depth/metadata', '/camera/depth/metadata'),
             ('~/extrinsics/depth_to_color', '/camera/extrinsics/depth_to_color'),
-            ('/clicked_point', '/clicked_point'),
         ]
     )
     

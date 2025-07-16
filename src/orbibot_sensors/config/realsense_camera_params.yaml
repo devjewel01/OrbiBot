@@ -65,7 +65,11 @@
     decimation_filter.filter_magnitude: 2.0
     
     # Frame IDs
-    base_frame_id: camera_link
+    # base_frame_id: RealSense creates frames as <namespace>_<camera_name>_<base_frame_id>
+    # With namespace="realsense", camera_name="camera", base_frame_id="link" 
+    # Result: "realsense_camera_link" which gets processed to "camera_link" 
+    # This matches our robot URDF's camera_link frame connected to base_link
+    base_frame_id: link
     depth_frame_id: camera_depth_frame
     color_frame_id: camera_color_frame
     infra1_frame_id: camera_infra1_frame
