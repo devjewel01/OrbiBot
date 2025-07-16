@@ -39,11 +39,11 @@ def generate_launch_description():
         output='screen'
     )
     
-    # Direction-Speed teleop (left stick = direction, right stick = speed)
-    teleop_node = Node(
+    # PS Controller node (left stick = direction, right stick = speed)
+    ps_controller_node = Node(
         package='orbibot_teleop',
-        executable='direction_speed_teleop',
-        name='direction_speed_teleop',
+        executable='ps_controller_node',
+        name='ps_controller_node',
         parameters=[{
             'max_linear_speed': 0.8,     # Max linear speed
             'max_angular_speed': 1.2,    # Max angular speed
@@ -70,6 +70,6 @@ def generate_launch_description():
         device_arg,
         deadzone_arg,
         joy_node,
-        teleop_node,
+        ps_controller_node,
         emergency_stop_node,  # Emergency stop functionality
     ])
