@@ -77,6 +77,7 @@ def generate_launch_description():
                 'color_width': LaunchConfiguration('color_width'),
                 'color_height': LaunchConfiguration('color_height'),
                 'color_fps': LaunchConfiguration('color_fps'),
+                'base_frame_id': 'camera_link',
             }
         ],
         output='screen',
@@ -94,23 +95,6 @@ def generate_launch_description():
         ]
     )
     
-    # Static transform publisher for camera frame
-    camera_tf_broadcaster = Node(
-        package='tf2_ros',
-        executable='static_transform_publisher',
-        name='camera_tf_broadcaster',
-        arguments=['0.1', '0', '0.15', '0', '0', '0', 'base_link', 'camera_link'],
-        output='screen'
-    )
-    
-    # Static transform for camera optical frame (ROS optical frame convention)
-    camera_optical_tf_broadcaster = Node(
-        package='tf2_ros',
-        executable='static_transform_publisher',
-        name='camera_optical_tf_broadcaster',
-        arguments=['0', '0', '0', '-1.5708', '0', '-1.5708', 'camera_link', 'camera_color_optical_frame'],
-        output='screen'
-    )
     
     # Log info
     log_info = LogInfo(
@@ -127,6 +111,4 @@ def generate_launch_description():
         color_fps_arg,
         log_info,
         realsense_node,
-        camera_tf_broadcaster,
-        camera_optical_tf_broadcaster,
     ])
