@@ -31,6 +31,9 @@
     
     # Time synchronization
     use_sim_time: false
+
+    # Auto standby mode - motor only runs when there are subscribers
+    auto_standby: true
     
     # Motor control
     motor_pwm: 660  # Default PWM value for motor speed

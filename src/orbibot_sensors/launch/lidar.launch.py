@@ -32,6 +32,12 @@ def generate_launch_description():
         description='Scan mode for RPLIDAR'
     )
     
+    use_sim_time_arg = DeclareLaunchArgument(
+        'use_sim_time',
+        default_value='false',
+        description='Use simulation time if true'
+    )
+    
     # Parameter file path
     rplidar_params_file = os.path.join(
         pkg_orbibot_sensors,
@@ -50,14 +56,14 @@ def generate_launch_description():
                 'serial_port': LaunchConfiguration('serial_port'),
                 'frame_id': LaunchConfiguration('frame_id'),
                 'scan_mode': LaunchConfiguration('scan_mode'),
-                'use_sim_time': False,
+                'use_sim_time': LaunchConfiguration('use_sim_time'),
             }
         ],
         output='screen',
         respawn=True,
         respawn_delay=2.0,
         remappings=[
-            ('scan', '/scan'),
+            ('/scan', '/scan'),
         ]
     )
     
@@ -71,6 +77,7 @@ def generate_launch_description():
         serial_port_arg,
         frame_id_arg,
         scan_mode_arg,
+        use_sim_time_arg,
         log_info,
         rplidar_node,
     ])
