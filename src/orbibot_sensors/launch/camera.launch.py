@@ -90,6 +90,9 @@ def generate_launch_description():
             ('~/color/metadata', '/camera/color/metadata'),
             ('~/depth/metadata', '/camera/depth/metadata'),
             ('~/extrinsics/depth_to_color', '/camera/extrinsics/depth_to_color'),
+            ('~/aligned_depth_to_color/camera_info', '/camera/aligned_depth_to_color/camera_info'),
+            ('~/aligned_depth_to_color/image_raw', '/camera/aligned_depth_to_color/image_raw'),
+            ('~/depth/color/points', '/camera/depth/color/points')
         ]
     )
     
