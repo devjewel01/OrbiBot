@@ -5,7 +5,7 @@ SLAM mapping using slam_toolbox
 """
 import os
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, ExecuteProcess, TimerAction
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
@@ -59,6 +59,18 @@ def generate_launch_description():
         ]
     )
     
+    # Configure SLAM toolbox lifecycle node
+    configure_slam = ExecuteProcess(
+        cmd=['ros2', 'lifecycle', 'set', '/slam_toolbox', 'configure'],
+        output='screen'
+    )
+    
+    # Activate SLAM toolbox lifecycle node
+    activate_slam = ExecuteProcess(
+        cmd=['ros2', 'lifecycle', 'set', '/slam_toolbox', 'activate'],
+        output='screen'
+    )
+    
     return LaunchDescription([
         # Launch arguments
         use_sim_time_arg,
@@ -67,4 +79,14 @@ def generate_launch_description():
         
         # SLAM node
         slam_toolbox_node,
+        
+        # Configure and activate SLAM node with delays
+        TimerAction(
+            period=2.0,
+            actions=[configure_slam]
+        ),
+        TimerAction(
+            period=4.0,
+            actions=[activate_slam]
+        ),
     ])
